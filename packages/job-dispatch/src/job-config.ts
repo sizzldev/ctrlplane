@@ -18,7 +18,7 @@ import {
 type FilterFunc = (
   tx: Tx,
   insertJobConfigs: JobConfigInsert[],
-) => Promise<JobConfigInsert[]>;
+) => Promise<JobConfigInsert[]> | JobConfigInsert[];
 
 type ThenFunc = (tx: Tx, jobConfigs: JobConfig[]) => Promise<void> | void;
 

@@ -1,5 +1,7 @@
 import type {
   Deployment,
+  EnvironmentPolicyApprovalRequirement,
+  EnvironmentPolicyApprovalStatus,
   JobConfig,
   JobExecution,
   Target,
@@ -116,6 +118,18 @@ export const Release: React.FC<{
   environment: {
     id: string;
     name: string;
+    policy?: {
+      approvalStatuses: {
+        releaseId: string;
+        status: EnvironmentPolicyApprovalStatus;
+      }[];
+      approvalRequirement?: EnvironmentPolicyApprovalRequirement;
+    };
+  };
+  deployment: {
+    id: string;
+    slug: string;
+    name: string;
   };
   activeDeploymentCount?: number;
   deployedAt: Date;
@@ -128,7 +142,6 @@ export const Release: React.FC<{
   >;
   workspaceSlug: string;
   systemSlug: string;
-  deploymentSlug: string;
 }> = (props) => {
   const {
     name,
@@ -137,9 +150,9 @@ export const Release: React.FC<{
     activeDeploymentCount,
     releaseId,
     environment,
+    deployment,
     workspaceSlug,
     systemSlug,
-    deploymentSlug,
   } = props;
   const data = _.chain(jobConfigs)
     .groupBy((r) => r.jobExecution?.status ?? "configured")
@@ -165,7 +178,7 @@ export const Release: React.FC<{
       <HoverCard>
         <HoverCardTrigger asChild>
           <Link
-            href={`/${workspaceSlug}/systems/${systemSlug}/deployments/${firstJobConfig?.deployment?.slug ?? deploymentSlug}/releases/${firstJobConfig?.releaseId}`}
+            href={`/${workspaceSlug}/systems/${systemSlug}/deployments/${firstJobConfig?.deployment?.slug ?? deployment.slug}/releases/${firstJobConfig?.releaseId}`}
             className="flex items-center gap-2"
           >
             <ReleaseIcon jobConfigs={jobConfigs} />
@@ -219,6 +232,7 @@ export const Release: React.FC<{
       <ReleaseDropdownMenu
         release={{ id: releaseId, name }}
         environment={environment}
+        deployment={deployment}
         isReleaseCompleted={isReleaseCompleted}
       />
     </div>

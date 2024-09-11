@@ -95,6 +95,8 @@ export const environmentPolicy = pgTable("environment_policy", {
 });
 
 export type EnvironmentPolicy = InferSelectModel<typeof environmentPolicy>;
+export type EnvironmentPolicyApprovalRequirement =
+  EnvironmentPolicy["approvalRequirement"];
 
 export const createEnvironmentPolicy = createInsertSchema(
   environmentPolicy,
@@ -184,3 +186,5 @@ export const environmentPolicyApproval = pgTable(
 export type EnvironmentPolicyApproval = InferSelectModel<
   typeof environmentPolicyApproval
 >;
+export type EnvironmentPolicyApprovalStatus =
+  EnvironmentPolicyApproval["status"];

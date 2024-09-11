@@ -103,7 +103,7 @@ const ReleaseCell: React.FC<{
           jobConfigs={jc}
           workspaceSlug={workspaceSlug}
           systemSlug={systemSlug}
-          deploymentSlug={deployment.slug}
+          deployment={deployment}
         />
       )}
 

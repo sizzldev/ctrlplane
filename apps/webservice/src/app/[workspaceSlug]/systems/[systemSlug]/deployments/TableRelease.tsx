@@ -1,6 +1,10 @@
 "use client";
 
-import type { Deployment } from "@ctrlplane/db/schema";
+import type {
+  Deployment,
+  EnvironmentPolicyApprovalRequirement,
+  EnvironmentPolicyApprovalStatus,
+} from "@ctrlplane/db/schema";
 import type { ReleaseType } from "semver";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -81,6 +85,13 @@ export const ReleaseTable: React.FC<{
     id: string;
     name: string;
     targets: { id: string }[];
+    policy?: {
+      approvalStatuses: {
+        releaseId: string;
+        status: EnvironmentPolicyApprovalStatus;
+      }[];
+      approvalRequirement?: EnvironmentPolicyApprovalRequirement;
+    };
   }[];
 }> = ({ deployment, environments }) => {
   const { workspaceSlug, systemSlug } = useParams<{
@@ -215,7 +226,7 @@ export const ReleaseTable: React.FC<{
                         <Release
                           workspaceSlug={workspaceSlug}
                           systemSlug={systemSlug}
-                          deploymentSlug={deployment.slug}
+                          deployment={deployment}
                           releaseId={r.id}
                           environment={env}
                           activeDeploymentCount={hasActiveDeployment}

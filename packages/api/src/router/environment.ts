@@ -8,6 +8,7 @@ import {
   arrayContains,
   eq,
   isNull,
+  sql,
   takeFirst,
   takeFirstOrNull,
 } from "@ctrlplane/db";
@@ -22,6 +23,7 @@ import {
   environmentPolicyDeployment,
   environmentPolicyReleaseWindow,
   jobConfig,
+  jobExecution,
   release,
   setPolicyReleaseWindow,
   system,
@@ -40,6 +42,7 @@ import {
 } from "@ctrlplane/job-dispatch";
 import { Permission } from "@ctrlplane/validators/auth";
 
+import { isPassingLockingPolicy } from "../../../job-dispatch/src/lock-checker";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 const policyRouter = createTRPCRouter({
@@ -487,6 +490,70 @@ export const environmentRouter = createTRPCRouter({
       };
     }),
 
+  rollback: protectedProcedure
+    .meta({
+      authorizationCheck: ({ canUser, input }) =>
+        canUser
+          .perform(Permission.SystemUpdate)
+          .on({ type: "environment", id: input.environmentId }),
+    })
+    .input(
+      z.object({
+        environmentId: z.string().uuid(),
+        releaseId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { environmentId, releaseId } = input;
+      const env = await ctx.db
+        .select()
+        .from(environment)
+        .where(
+          and(eq(environment.id, environmentId), isNull(environment.deletedAt)),
+        )
+        .then(takeFirstOrNull);
+      if (!env) throw new Error("Environment not found");
+
+      const rel = await ctx.db
+        .select()
+        .from(release)
+        .where(eq(release.id, releaseId))
+        .then(takeFirstOrNull);
+      if (!rel) throw new Error("Release not found");
+
+      const latestReleaseSubquery = ctx.db
+        .select({
+          id: release.id,
+          deploymentId: release.deploymentId,
+          version: release.version,
+          createdAt: release.createdAt,
+
+          rank: sql<number>`ROW_NUMBER() OVER (PARTITION BY deployment_id ORDER BY created_at DESC)`.as(
+            "rank",
+          ),
+        })
+        .from(release)
+        .as("release");
+
+      await ctx.db
+        .select()
+        .from(jobConfig)
+        .leftJoin(jobExecution, eq(jobExecution.jobConfigId, jobConfig.id))
+        .innerJoin(
+          latestReleaseSubquery,
+          eq(latestReleaseSubquery.deploymentId, rel.deploymentId),
+        )
+        .where(and(eq(latestReleaseSubquery.rank, 1), isNull(jobExecution.id)))
+        .then(
+          async (jobConfigs) =>
+            await dispatchJobConfigs(ctx.db)
+              .jobConfigs(jobConfigs.map((j) => j.job_config))
+              .filter(isPassingLockingPolicy)
+              .then(cancelOldJobConfigsOnJobDispatch)
+              .dispatch(),
+        );
+    }),
+
   byId: protectedProcedure
     .meta({
       authorizationCheck: ({ canUser, input }) =>
@@ -524,6 +591,14 @@ export const environmentRouter = createTRPCRouter({
         .from(environment)
         .innerJoin(system, eq(system.id, environment.systemId))
         .leftJoin(
+          environmentPolicy,
+          eq(environment.policyId, environmentPolicy.id),
+        )
+        .leftJoin(
+          environmentPolicyApproval,
+          eq(environmentPolicyApproval.policyId, environmentPolicy.id),
+        )
+        .leftJoin(
           target,
           and(
             arrayContains(target.labels, environment.targetFilter),
@@ -539,6 +614,29 @@ export const environmentRouter = createTRPCRouter({
         .map((envs) => ({
           ...envs.at(0)!.environment,
           targets: envs.map((e) => e.target).filter(isPresent),
+          policy:
+            envs.at(0)!.environment_policy != null
+              ? {
+                  ...envs.at(0)!.environment_policy,
+                  // approvalStatuses: envs
+                  //   .filter((env) => isPresent(env.environment_policy_approval))
+                  //   .map((env) => ({
+                  //     releaseId: env.environment_policy_approval!.releaseId,
+                  //     status: env.environment_policy_approval!.status,
+                  //   })),
+
+                  approvalStatuses: _.chain(envs)
+                    .filter((env) => isPresent(env.environment_policy_approval))
+                    .groupBy(
+                      (env) => env.environment_policy_approval!.releaseId,
+                    )
+                    .map((envs, releaseId) => ({
+                      releaseId,
+                      status: envs.at(0)!.environment_policy_approval!.status,
+                    }))
+                    .value(),
+                }
+              : undefined,
         }))
         .value();
     }),
