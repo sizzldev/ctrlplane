@@ -5,27 +5,35 @@ import { KubeConfig } from "@kubernetes/client-node";
 import { GoogleAuth, Impersonated } from "google-auth-library";
 import { SemVer } from "semver";
 
+import { ReservedMetadataKey } from "@ctrlplane/validators/targets";
+
 import { omitNullUndefined } from "../utils.js";
 
 const sourceCredentials = new GoogleAuth({
   scopes: ["https://www.googleapis.com/auth/cloud-platform"],
 });
 
+export const getImpersonatedClient = async (targetPrincipal: string) =>
+  new Impersonated({
+    sourceClient: await sourceCredentials.getClient(),
+    targetPrincipal,
+    lifetime: 3600,
+    delegates: [],
+    targetScopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+
 export const getGoogleClusterClient = async (
   targetPrincipal?: string | null,
 ) => {
-  const clientOptions: { authClient?: Impersonated } = {};
+  let authClient: Impersonated | undefined;
 
-  if (targetPrincipal !== null)
-    clientOptions.authClient = new Impersonated({
-      sourceClient: await sourceCredentials.getClient(),
-      targetPrincipal: targetPrincipal ?? undefined,
-      lifetime: 3600,
-      delegates: [],
-      targetScopes: ["https://www.googleapis.com/auth/cloud-platform"],
-    });
+  if (targetPrincipal != null)
+    authClient = await getImpersonatedClient(targetPrincipal);
 
-  return new Container.v1.ClusterManagerClient(clientOptions);
+  return [
+    new Container.v1.ClusterManagerClient({ authClient }),
+    authClient,
+  ] as const;
 };
 
 export const getClusters = async (
@@ -40,6 +48,7 @@ export const getClusters = async (
 
 export const connectToCluster = async (
   clusterClient: ClusterManagerClient,
+  authClient: Impersonated | undefined,
   project: string,
   clusterName: string,
   clusterLocation: string,
@@ -47,6 +56,12 @@ export const connectToCluster = async (
   const [credentials] = await clusterClient.getCluster({
     name: `projects/${project}/locations/${clusterLocation}/clusters/${clusterName}`,
   });
+
+  const token = await (authClient != null
+    ? authClient.getAccessToken().then((t) => t.token)
+    : sourceCredentials.getAccessToken());
+  if (token == null) throw new Error("Unable to get kubernetes access token.");
+
   const kubeConfig = new KubeConfig();
   kubeConfig.loadFromOptions({
     clusters: [
@@ -56,12 +71,7 @@ export const connectToCluster = async (
         caData: credentials.masterAuth!.clusterCaCertificate!,
       },
     ],
-    users: [
-      {
-        name: clusterName,
-        token: (await sourceCredentials.getAccessToken())!,
-      },
-    ],
+    users: [{ name: clusterName, token }],
     contexts: [
       {
         name: clusterName,
@@ -93,7 +103,7 @@ export const clusterToTarget = (
     providerId,
     identifier: `${project}/${cluster.name}`,
     version: "kubernetes/v1",
-    kind: "KubernetesAPI",
+    kind: "ClusterAPI",
     config: {
       name: cluster.name,
       status: cluster.status,
@@ -102,17 +112,19 @@ export const clusterToTarget = (
         endpoint: `https://${cluster.endpoint}`,
       },
     },
-    labels: omitNullUndefined({
-      "ctrlplane/url": appUrl,
+    metadata: omitNullUndefined({
+      [ReservedMetadataKey.Links]: JSON.stringify({ "Google Console": appUrl }),
+      [ReservedMetadataKey.ExternalId]: cluster.id ?? "",
 
       "google/self-link": cluster.selfLink,
       "google/project": project,
       "google/location": cluster.location,
-      "google/autopilot": cluster.autopilot?.enabled,
+      "google/autopilot": String(cluster.autopilot?.enabled ?? false),
 
-      "kubernetes/cluster-name": cluster.name,
-      "kubernetes/cluster-id": cluster.id,
-      "kubernetes/distribution": "gke",
+      [ReservedMetadataKey.KubernetesFlavor]: "gke",
+      [ReservedMetadataKey.KubernetesVersion]:
+        masterVersion.version.split("-")[0] ?? "",
+
       "kubernetes/status": cluster.status,
       "kubernetes/node-count": String(cluster.currentNodeCount ?? "unknown"),
 

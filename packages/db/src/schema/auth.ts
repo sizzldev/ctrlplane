@@ -6,11 +6,20 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
 import { workspace } from "./workspace.js";
+
+const userSchema = z.object({
+  name: z.string().min(1).max(255),
+  email: z.string().email(),
+  activeWorkspaceId: z.string().uuid().optional(),
+});
 
 export const user = pgTable("user", {
   id: uuid("id").notNull().primaryKey().defaultRandom(),
@@ -24,6 +33,11 @@ export const user = pgTable("user", {
 });
 
 export type User = InferSelectModel<typeof user>;
+
+export const createUser = createInsertSchema(user, userSchema.shape).omit({
+  id: true,
+});
+export const updateUser = createUser.partial();
 
 export const userRelations = relations(user, ({ many }) => ({
   accounts: many(account),
@@ -71,15 +85,22 @@ export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, { fields: [session.userId], references: [user.id] }),
 }));
 
-export const userApiKey = pgTable("user_api_key", {
-  id: uuid("id").notNull().primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => user.id, {
-      onDelete: "cascade",
-    }),
-  name: varchar("name", { length: 255 }).notNull(),
-  keyPreview: text("key_preview").notNull(),
-  keyHash: text("key_hash").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-});
+export const userApiKey = pgTable(
+  "user_api_key",
+  {
+    id: uuid("id").notNull().primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, {
+        onDelete: "cascade",
+      }),
+    name: varchar("name", { length: 255 }).notNull(),
+    keyPreview: text("key_preview").notNull(),
+    keyHash: text("key_hash").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (t) => ({ unqi: uniqueIndex().on(t.keyPrefix, t.keyHash) }),
+);
+
+export type UserApiKey = Omit<InferSelectModel<typeof userApiKey>, "keyHash">;

@@ -9,11 +9,12 @@
   "scripts": {
     "build": "turbo build",
     "build:digitalocean": "pnpm install --production=false && pnpm build",
+    "test": "turbo test",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo clean && find . -type d -name 'dist' -exec rm -rf {} +",
     "db:push": "pnpm -F db push",
     "db:studio": "pnpm -F db studio",
-    "dev": "turbo dev --parallel --concurrency 30 --filter=!./providers/**/*",
+    "dev": "turbo dev --parallel --concurrency 30 --cache-workers 30 --filter=!./providers/**/*",
     "dev:otel": "NEXT_OTEL_VERBOSE=1  turbo dev --parallel --concurrency 30 --filter=!./providers/**/*",
     "format": "turbo format --continue -- --cache --cache-location node_modules/.cache/.prettiercache",
     "format:fix": "turbo format --continue -- --write --cache --cache-location node_modules/.cache/.prettiercache",
@@ -28,10 +29,10 @@
   },
   "devDependencies": {
     "@ctrlplane/prettier-config": "workspace:*",
-    "@turbo/gen": "^2.0.7",
+    "@turbo/gen": "^2.1.2",
     "prettier": "catalog:",
-    "turbo": "^2.0.7",
-    "typescript": "^5.4.5"
+    "turbo": "^2.1.2",
+    "typescript": "^5.6.2"
   },
   "prettier": "@ctrlplane/prettier-config"
 }

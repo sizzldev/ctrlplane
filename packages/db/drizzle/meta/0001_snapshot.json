@@ -1,7 +1,7 @@
 {
-  "id": "0f4c03e8-ef61-43b0-a394-0bebe96c52d6",
-  "prevId": "963facaf-7c0b-418d-a921-3d8736b1cfb2",
-  "version": "6",
+  "id": "809992b3-178a-45c8-9054-89e08086ff83",
+  "prevId": "1b361720-301c-46ef-bf99-468d4488476c",
+  "version": "7",
   "dialect": "postgresql",
   "tables": {
     "public.account": {
@@ -167,10 +167,112 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
+        },
+        "active_workspace_id": {
+          "name": "active_workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "null"
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "user_active_workspace_id_workspace_id_fk": {
+          "name": "user_active_workspace_id_workspace_id_fk",
+          "tableFrom": "user",
+          "tableTo": "workspace",
+          "columnsFrom": ["active_workspace_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.user_api_key": {
+      "name": "user_api_key",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key_preview": {
+          "name": "key_preview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key_hash": {
+          "name": "key_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key_prefix": {
+          "name": "key_prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "user_api_key_key_prefix_key_hash_index": {
+          "name": "user_api_key_key_prefix_key_hash_index",
+          "columns": [
+            {
+              "expression": "key_prefix",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "user_api_key_user_id_user_id_fk": {
+          "name": "user_api_key_user_id_user_id_fk",
+          "tableFrom": "user_api_key",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -342,8 +444,24 @@
       "indexes": {
         "deployment_variable_deployment_id_key_index": {
           "name": "deployment_variable_deployment_id_key_index",
-          "columns": ["deployment_id", "key"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "deployment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -354,6 +472,76 @@
           "columnsFrom": ["deployment_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.deployment_variable_set": {
+      "name": "deployment_variable_set",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "deployment_id": {
+          "name": "deployment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "variable_set_id": {
+          "name": "variable_set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "deployment_variable_set_deployment_id_variable_set_id_index": {
+          "name": "deployment_variable_set_deployment_id_variable_set_id_index",
+          "columns": [
+            {
+              "expression": "deployment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "variable_set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "deployment_variable_set_deployment_id_deployment_id_fk": {
+          "name": "deployment_variable_set_deployment_id_deployment_id_fk",
+          "tableFrom": "deployment_variable_set",
+          "tableTo": "deployment",
+          "columnsFrom": ["deployment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "deployment_variable_set_variable_set_id_variable_set_id_fk": {
+          "name": "deployment_variable_set_variable_set_id_variable_set_id_fk",
+          "tableFrom": "deployment_variable_set",
+          "tableTo": "variable_set",
+          "columnsFrom": ["variable_set_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -387,8 +575,24 @@
       "indexes": {
         "deployment_variable_value_variable_id_value_index": {
           "name": "deployment_variable_value_variable_id_value_index",
-          "columns": ["variable_id", "value"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "variable_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "value",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -432,8 +636,24 @@
       "indexes": {
         "deployment_variable_value_target_variable_value_id_target_id_index": {
           "name": "deployment_variable_value_target_variable_value_id_target_id_index",
-          "columns": ["variable_value_id", "target_id"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "variable_value_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -476,8 +696,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "labels": {
-          "name": "labels",
+        "target_filter": {
+          "name": "target_filter",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
@@ -556,8 +776,24 @@
       "indexes": {
         "deployment_system_id_slug_index": {
           "name": "deployment_system_id_slug_index",
-          "columns": ["system_id", "slug"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "system_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -576,7 +812,7 @@
           "tableTo": "job_agent",
           "columnsFrom": ["job_agent_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "deployment_github_config_file_id_github_config_file_id_fk": {
@@ -585,7 +821,7 @@
           "tableTo": "github_config_file",
           "columnsFrom": ["github_config_file_id"],
           "columnsTo": ["id"],
-          "onDelete": "cascade",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -618,8 +854,24 @@
       "indexes": {
         "deployment_meta_dependency_depends_on_id_deployment_id_index": {
           "name": "deployment_meta_dependency_depends_on_id_deployment_id_index",
-          "columns": ["depends_on_id", "deployment_id"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "depends_on_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "deployment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -685,8 +937,8 @@
           "name": "target_filter",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
+          "notNull": false,
+          "default": "NULL"
         },
         "deleted_at": {
           "name": "deleted_at",
@@ -867,8 +1119,24 @@
       "indexes": {
         "environment_policy_approval_policy_id_release_id_index": {
           "name": "environment_policy_approval_policy_id_release_id_index",
-          "columns": ["policy_id", "release_id"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "policy_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "release_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -921,8 +1189,24 @@
       "indexes": {
         "environment_policy_deployment_policy_id_environment_id_index": {
           "name": "environment_policy_deployment_policy_id_environment_id_index",
-          "columns": ["policy_id", "environment_id"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "policy_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "environment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1046,8 +1330,30 @@
       "indexes": {
         "unique_organization_repository_path": {
           "name": "unique_organization_repository_path",
-          "columns": ["organization_id", "repository_name", "path"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "repository_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "path",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1121,13 +1427,6 @@
           "notNull": true,
           "default": "now()"
         },
-        "connected": {
-          "name": "connected",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
         "branch": {
           "name": "branch",
           "type": "text",
@@ -1136,7 +1435,29 @@
           "default": "'main'"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "unique_installation_workspace": {
+          "name": "unique_installation_workspace",
+          "columns": [
+            {
+              "expression": "installation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "github_organization_added_by_user_id_user_id_fk": {
           "name": "github_organization_added_by_user_id_user_id_fk",
@@ -1244,7 +1565,7 @@
           "name": "provider_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "workspace_id": {
           "name": "workspace_id",
@@ -1254,13 +1575,6 @@
         },
         "config": {
           "name": "config",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        },
-        "labels": {
-          "name": "labels",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
@@ -1282,8 +1596,24 @@
       "indexes": {
         "target_identifier_workspace_id_index": {
           "name": "target_identifier_workspace_id_index",
-          "columns": ["identifier", "workspace_id"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "identifier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1293,7 +1623,7 @@
           "tableTo": "target_provider",
           "columnsFrom": ["provider_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "target_workspace_id_workspace_id_fk": {
@@ -1302,18 +1632,79 @@
           "tableTo": "workspace",
           "columnsFrom": ["workspace_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "target_name_unique": {
-          "name": "target_name_unique",
-          "nullsNotDistinct": false,
-          "columns": ["name"]
+      "uniqueConstraints": {}
+    },
+    "public.target_metadata": {
+      "name": "target_metadata",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "target_id": {
+          "name": "target_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         }
-      }
+      },
+      "indexes": {
+        "target_metadata_key_target_id_index": {
+          "name": "target_metadata_key_target_id_index",
+          "columns": [
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "target_metadata_target_id_target_id_fk": {
+          "name": "target_metadata_target_id_target_id_fk",
+          "tableFrom": "target_metadata",
+          "tableTo": "target",
+          "columnsFrom": ["target_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
     },
     "public.target_schema": {
       "name": "target_schema",
@@ -1354,8 +1745,30 @@
       "indexes": {
         "target_schema_version_kind_workspace_id_index": {
           "name": "target_schema_version_kind_workspace_id_index",
-          "columns": ["version", "kind", "workspace_id"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1406,8 +1819,24 @@
       "indexes": {
         "target_provider_workspace_id_name_index": {
           "name": "target_provider_workspace_id_name_index",
-          "columns": ["workspace_id", "name"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1456,7 +1885,7 @@
           "tableTo": "target_provider",
           "columnsFrom": ["target_provider_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -1504,8 +1933,24 @@
       "indexes": {
         "release_deployment_id_version_index": {
           "name": "release_deployment_id_version_index",
-          "columns": ["deployment_id", "version"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "deployment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1545,8 +1990,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "target_label_group_id": {
-          "name": "target_label_group_id",
+        "target_metadata_group_id": {
+          "name": "target_metadata_group_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -1566,10 +2011,32 @@
         }
       },
       "indexes": {
-        "release_dependency_release_id_deployment_id_target_label_group_id_index": {
-          "name": "release_dependency_release_id_deployment_id_target_label_group_id_index",
-          "columns": ["release_id", "deployment_id", "target_label_group_id"],
-          "isUnique": true
+        "release_dependency_release_id_deployment_id_target_metadata_group_id_index": {
+          "name": "release_dependency_release_id_deployment_id_target_metadata_group_id_index",
+          "columns": [
+            {
+              "expression": "release_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "deployment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_metadata_group_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1591,11 +2058,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "release_dependency_target_label_group_id_target_label_group_id_fk": {
-          "name": "release_dependency_target_label_group_id_target_label_group_id_fk",
+        "release_dependency_target_metadata_group_id_target_metadata_group_id_fk": {
+          "name": "release_dependency_target_metadata_group_id_target_metadata_group_id_fk",
           "tableFrom": "release_dependency",
-          "tableTo": "target_label_group",
-          "columnsFrom": ["target_label_group_id"],
+          "tableTo": "target_metadata_group",
+          "columnsFrom": ["target_metadata_group_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1603,6 +2070,119 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
+    },
+    "public.release_job_trigger": {
+      "name": "release_job_trigger",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "release_job_trigger_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "caused_by_id": {
+          "name": "caused_by_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_id": {
+          "name": "target_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "environment_id": {
+          "name": "environment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "release_job_trigger_job_id_job_id_fk": {
+          "name": "release_job_trigger_job_id_job_id_fk",
+          "tableFrom": "release_job_trigger",
+          "tableTo": "job",
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "release_job_trigger_caused_by_id_user_id_fk": {
+          "name": "release_job_trigger_caused_by_id_user_id_fk",
+          "tableFrom": "release_job_trigger",
+          "tableTo": "user",
+          "columnsFrom": ["caused_by_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "release_job_trigger_release_id_release_id_fk": {
+          "name": "release_job_trigger_release_id_release_id_fk",
+          "tableFrom": "release_job_trigger",
+          "tableTo": "release",
+          "columnsFrom": ["release_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "release_job_trigger_target_id_target_id_fk": {
+          "name": "release_job_trigger_target_id_target_id_fk",
+          "tableFrom": "release_job_trigger",
+          "tableTo": "target",
+          "columnsFrom": ["target_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "release_job_trigger_environment_id_environment_id_fk": {
+          "name": "release_job_trigger_environment_id_environment_id_fk",
+          "tableFrom": "release_job_trigger",
+          "tableTo": "environment",
+          "columnsFrom": ["environment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "release_job_trigger_job_id_unique": {
+          "name": "release_job_trigger_job_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["job_id"]
+        }
+      }
     },
     "public.system": {
       "name": "system",
@@ -1644,8 +2224,24 @@
       "indexes": {
         "system_workspace_id_slug_index": {
           "name": "system_workspace_id_slug_index",
-          "columns": ["workspace_id", "slug"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1677,13 +2273,19 @@
           "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "description": {
           "name": "description",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "system_id": {
+          "name": "system_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         },
         "job_agent_id": {
           "name": "job_agent_id",
@@ -1693,25 +2295,96 @@
         },
         "job_agent_config": {
           "name": "job_agent_config",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'{}'"
         }
       },
       "indexes": {},
       "foreignKeys": {
+        "runbook_system_id_system_id_fk": {
+          "name": "runbook_system_id_system_id_fk",
+          "tableFrom": "runbook",
+          "tableTo": "system",
+          "columnsFrom": ["system_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "runbook_job_agent_id_job_agent_id_fk": {
           "name": "runbook_job_agent_id_job_agent_id_fk",
           "tableFrom": "runbook",
           "tableTo": "job_agent",
           "columnsFrom": ["job_agent_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
+    },
+    "public.runbook_job_trigger": {
+      "name": "runbook_job_trigger",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "runbook_id": {
+          "name": "runbook_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "runbook_job_trigger_job_id_job_id_fk": {
+          "name": "runbook_job_trigger_job_id_job_id_fk",
+          "tableFrom": "runbook_job_trigger",
+          "tableTo": "job",
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "runbook_job_trigger_runbook_id_runbook_id_fk": {
+          "name": "runbook_job_trigger_runbook_id_runbook_id_fk",
+          "tableFrom": "runbook_job_trigger",
+          "tableTo": "runbook",
+          "columnsFrom": ["runbook_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "runbook_job_trigger_job_id_unique": {
+          "name": "runbook_job_trigger_job_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["job_id"]
+        }
+      }
     },
     "public.team": {
       "name": "team",
@@ -1779,8 +2452,24 @@
       "indexes": {
         "team_member_team_id_user_id_index": {
           "name": "team_member_team_id_user_id_index",
-          "columns": ["team_id", "user_id"],
-          "isUnique": true
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1806,8 +2495,8 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.job_agent": {
-      "name": "job_agent",
+    "public.job": {
+      "name": "job",
       "schema": "",
       "columns": {
         "id": {
@@ -1816,177 +2505,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "config": {
-          "name": "config",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'"
-        }
-      },
-      "indexes": {
-        "job_agent_workspace_id_name_index": {
-          "name": "job_agent_workspace_id_name_index",
-          "columns": ["workspace_id", "name"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "job_agent_workspace_id_workspace_id_fk": {
-          "name": "job_agent_workspace_id_workspace_id_fk",
-          "tableFrom": "job_agent",
-          "tableTo": "workspace",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.job_config": {
-      "name": "job_config",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "type": {
-          "name": "type",
-          "type": "job_config_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "caused_by_id": {
-          "name": "caused_by_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "release_id": {
-          "name": "release_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_id": {
-          "name": "target_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "environment_id": {
-          "name": "environment_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "runbook_id": {
-          "name": "runbook_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "job_config_caused_by_id_user_id_fk": {
-          "name": "job_config_caused_by_id_user_id_fk",
-          "tableFrom": "job_config",
-          "tableTo": "user",
-          "columnsFrom": ["caused_by_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "job_config_release_id_release_id_fk": {
-          "name": "job_config_release_id_release_id_fk",
-          "tableFrom": "job_config",
-          "tableTo": "release",
-          "columnsFrom": ["release_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "job_config_target_id_target_id_fk": {
-          "name": "job_config_target_id_target_id_fk",
-          "tableFrom": "job_config",
-          "tableTo": "target",
-          "columnsFrom": ["target_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "job_config_environment_id_environment_id_fk": {
-          "name": "job_config_environment_id_environment_id_fk",
-          "tableFrom": "job_config",
-          "tableTo": "environment",
-          "columnsFrom": ["environment_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "job_config_runbook_id_runbook_id_fk": {
-          "name": "job_config_runbook_id_runbook_id_fk",
-          "tableFrom": "job_config",
-          "tableTo": "runbook",
-          "columnsFrom": ["runbook_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.job_execution": {
-      "name": "job_execution",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "job_config_id": {
-          "name": "job_config_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "job_agent_id": {
           "name": "job_agent_id",
@@ -2009,7 +2527,7 @@
         },
         "status": {
           "name": "status",
-          "type": "job_execution_status",
+          "type": "job_status",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
@@ -2023,7 +2541,7 @@
         },
         "reason": {
           "name": "reason",
-          "type": "job_execution_reason",
+          "type": "job_reason",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
@@ -2046,20 +2564,78 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "job_execution_job_config_id_job_config_id_fk": {
-          "name": "job_execution_job_config_id_job_config_id_fk",
-          "tableFrom": "job_execution",
-          "tableTo": "job_config",
-          "columnsFrom": ["job_config_id"],
+        "job_job_agent_id_job_agent_id_fk": {
+          "name": "job_job_agent_id_job_agent_id_fk",
+          "tableFrom": "job",
+          "tableTo": "job_agent",
+          "columnsFrom": ["job_agent_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.job_variable": {
+      "name": "job_variable",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
-        "job_execution_job_agent_id_job_agent_id_fk": {
-          "name": "job_execution_job_agent_id_job_agent_id_fk",
-          "tableFrom": "job_execution",
-          "tableTo": "job_agent",
-          "columnsFrom": ["job_agent_id"],
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "job_variable_job_id_key_index": {
+          "name": "job_variable_job_id_key_index",
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "job_variable_job_id_job_id_fk": {
+          "name": "job_variable_job_id_job_id_fk",
+          "tableFrom": "job_variable",
+          "tableTo": "job",
+          "columnsFrom": ["job_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -2109,113 +2685,8 @@
         }
       }
     },
-    "public.workspace_member": {
-      "name": "workspace_member",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "workspace_member_workspace_id_user_id_index": {
-          "name": "workspace_member_workspace_id_user_id_index",
-          "columns": ["workspace_id", "user_id"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "workspace_member_workspace_id_workspace_id_fk": {
-          "name": "workspace_member_workspace_id_workspace_id_fk",
-          "tableFrom": "workspace_member",
-          "tableTo": "workspace",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "workspace_member_user_id_user_id_fk": {
-          "name": "workspace_member_user_id_user_id_fk",
-          "tableFrom": "workspace_member",
-          "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.value": {
-      "name": "value",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "value_set_id": {
-          "name": "value_set_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "value_value_set_id_key_value_index": {
-          "name": "value_value_set_id_key_value_index",
-          "columns": ["value_set_id", "key", "value"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "value_value_set_id_value_set_id_fk": {
-          "name": "value_value_set_id_value_set_id_fk",
-          "tableFrom": "value",
-          "tableTo": "value_set",
-          "columnsFrom": ["value_set_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.value_set": {
-      "name": "value_set",
+    "public.variable_set": {
+      "name": "variable_set",
       "schema": "",
       "columns": {
         "id": {
@@ -2246,21 +2717,21 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "value_set_system_id_system_id_fk": {
-          "name": "value_set_system_id_system_id_fk",
-          "tableFrom": "value_set",
+        "variable_set_system_id_system_id_fk": {
+          "name": "variable_set_system_id_system_id_fk",
+          "tableFrom": "variable_set",
           "tableTo": "system",
           "columnsFrom": ["system_id"],
           "columnsTo": ["id"],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.workspace_invite_link": {
-      "name": "workspace_invite_link",
+    "public.variable_set_value": {
+      "name": "variable_set_value",
       "schema": "",
       "columns": {
         "id": {
@@ -2270,8 +2741,87 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "workspace_member_id": {
-          "name": "workspace_member_id",
+        "variable_set_id": {
+          "name": "variable_set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "variable_set_value_variable_set_id_key_index": {
+          "name": "variable_set_value_variable_set_id_key_index",
+          "columns": [
+            {
+              "expression": "variable_set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "variable_set_value_variable_set_id_variable_set_id_fk": {
+          "name": "variable_set_value_variable_set_id_variable_set_id_fk",
+          "tableFrom": "variable_set_value",
+          "tableTo": "variable_set",
+          "columnsFrom": ["variable_set_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.workspace_invite_token": {
+      "name": "workspace_invite_token",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -2282,15 +2832,39 @@
           "primaryKey": false,
           "notNull": true,
           "default": "gen_random_uuid()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "workspace_invite_link_workspace_member_id_workspace_member_id_fk": {
-          "name": "workspace_invite_link_workspace_member_id_workspace_member_id_fk",
-          "tableFrom": "workspace_invite_link",
-          "tableTo": "workspace_member",
-          "columnsFrom": ["workspace_member_id"],
+        "workspace_invite_token_role_id_role_id_fk": {
+          "name": "workspace_invite_token_role_id_role_id_fk",
+          "tableFrom": "workspace_invite_token",
+          "tableTo": "role",
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_invite_token_workspace_id_workspace_id_fk": {
+          "name": "workspace_invite_token_workspace_id_workspace_id_fk",
+          "tableFrom": "workspace_invite_token",
+          "tableTo": "workspace",
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_invite_token_created_by_user_id_fk": {
+          "name": "workspace_invite_token_created_by_user_id_fk",
+          "tableFrom": "workspace_invite_token",
+          "tableTo": "user",
+          "columnsFrom": ["created_by"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -2298,15 +2872,15 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "workspace_invite_link_token_unique": {
-          "name": "workspace_invite_link_token_unique",
+        "workspace_invite_token_token_unique": {
+          "name": "workspace_invite_token_token_unique",
           "nullsNotDistinct": false,
           "columns": ["token"]
         }
       }
     },
-    "public.target_label_group": {
-      "name": "target_label_group",
+    "public.target_metadata_group": {
+      "name": "target_metadata_group",
       "schema": "",
       "columns": {
         "id": {
@@ -2339,13 +2913,20 @@
           "type": "text[]",
           "primaryKey": false,
           "notNull": true
+        },
+        "include_null_combinations": {
+          "name": "include_null_combinations",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "target_label_group_workspace_id_workspace_id_fk": {
-          "name": "target_label_group_workspace_id_workspace_id_fk",
-          "tableFrom": "target_label_group",
+        "target_metadata_group_workspace_id_workspace_id_fk": {
+          "name": "target_metadata_group_workspace_id_workspace_id_fk",
+          "tableFrom": "target_metadata_group",
           "tableTo": "workspace",
           "columnsFrom": ["workspace_id"],
           "columnsTo": ["id"],
@@ -2373,6 +2954,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "description": {
           "name": "description",
           "type": "text",
@@ -2386,32 +2973,328 @@
           "primaryKey": false,
           "notNull": true
         },
-        "required": {
-          "name": "required",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "default_value": {
-          "name": "default_value",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "schema": {
           "name": "schema",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "runbook_variable_runbook_id_key_index": {
+          "name": "runbook_variable_runbook_id_key_index",
+          "columns": [
+            {
+              "expression": "runbook_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "runbook_variable_runbook_id_runbook_id_fk": {
           "name": "runbook_variable_runbook_id_runbook_id_fk",
           "tableFrom": "runbook_variable",
           "tableTo": "runbook",
           "columnsFrom": ["runbook_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.entity_role": {
+      "name": "entity_role",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "entity_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_id": {
+          "name": "scope_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_type": {
+          "name": "scope_type",
+          "type": "scope_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "entity_role_role_id_entity_type_entity_id_scope_id_scope_type_index": {
+          "name": "entity_role_role_id_entity_type_entity_id_scope_id_scope_type_index",
+          "columns": [
+            {
+              "expression": "role_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entity_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scope_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scope_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "entity_role_role_id_role_id_fk": {
+          "name": "entity_role_role_id_role_id_fk",
+          "tableFrom": "entity_role",
+          "tableTo": "role",
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.role": {
+      "name": "role",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "role_workspace_id_workspace_id_fk": {
+          "name": "role_workspace_id_workspace_id_fk",
+          "tableFrom": "role",
+          "tableTo": "workspace",
+          "columnsFrom": ["workspace_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.role_permission": {
+      "name": "role_permission",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permission": {
+          "name": "permission",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "role_permission_role_id_permission_index": {
+          "name": "role_permission_role_id_permission_index",
+          "columns": [
+            {
+              "expression": "role_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "permission",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "role_permission_role_id_role_id_fk": {
+          "name": "role_permission_role_id_role_id_fk",
+          "tableFrom": "role_permission",
+          "tableTo": "role",
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.job_agent": {
+      "name": "job_agent",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "config": {
+          "name": "config",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        }
+      },
+      "indexes": {
+        "job_agent_workspace_id_name_index": {
+          "name": "job_agent_workspace_id_name_index",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "job_agent_workspace_id_workspace_id_fk": {
+          "name": "job_agent_workspace_id_workspace_id_fk",
+          "tableFrom": "job_agent",
+          "tableTo": "workspace",
+          "columnsFrom": ["workspace_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -2462,8 +3345,8 @@
       "schema": "public",
       "values": ["regex", "semver"]
     },
-    "public.job_config_type": {
-      "name": "job_config_type",
+    "public.release_job_trigger_type": {
+      "name": "release_job_trigger_type",
       "schema": "public",
       "values": [
         "new_release",
@@ -2471,11 +3354,11 @@
         "target_changed",
         "api",
         "redeploy",
-        "runbook"
+        "force_deploy"
       ]
     },
-    "public.job_execution_reason": {
-      "name": "job_execution_reason",
+    "public.job_reason": {
+      "name": "job_reason",
       "schema": "public",
       "values": [
         "policy_passing",
@@ -2484,8 +3367,8 @@
         "config_policy_override"
       ]
     },
-    "public.job_execution_status": {
-      "name": "job_execution_status",
+    "public.job_status": {
+      "name": "job_status",
       "schema": "public",
       "values": [
         "completed",
@@ -2495,11 +3378,37 @@
         "action_required",
         "pending",
         "failure",
-        "invalid_job_agent"
+        "invalid_job_agent",
+        "invalid_integration",
+        "external_run_not_found"
+      ]
+    },
+    "public.entity_type": {
+      "name": "entity_type",
+      "schema": "public",
+      "values": ["user", "team"]
+    },
+    "public.scope_type": {
+      "name": "scope_type",
+      "schema": "public",
+      "values": [
+        "release",
+        "target",
+        "targetProvider",
+        "targetMetadataGroup",
+        "workspace",
+        "environment",
+        "environmentPolicy",
+        "variableSet",
+        "system",
+        "deployment",
+        "jobAgent",
+        "runbook"
       ]
     }
   },
   "schemas": {},
+  "sequences": {},
   "_meta": {
     "columns": {},
     "schemas": {},

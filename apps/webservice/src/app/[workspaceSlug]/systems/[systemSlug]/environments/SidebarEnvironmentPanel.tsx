@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import type { MetadataCondition } from "@ctrlplane/validators/targets";
 import { useParams } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useFieldArray, useForm } from "react-hook-form";
 import { TbInfoCircle, TbPlant } from "react-icons/tb";
 import { useReactFlow } from "reactflow";
 import { z } from "zod";
 
-import { cn } from "@ctrlplane/ui";
 import { Button } from "@ctrlplane/ui/button";
 import {
   Form,
@@ -16,22 +13,32 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  useFieldArray,
+  useForm,
 } from "@ctrlplane/ui/form";
 import { Input } from "@ctrlplane/ui/input";
+import { Label } from "@ctrlplane/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@ctrlplane/ui/select";
 import { Separator } from "@ctrlplane/ui/separator";
 import { Textarea } from "@ctrlplane/ui/textarea";
+import { metadataCondition } from "@ctrlplane/validators/targets";
 
 import { api } from "~/trpc/react";
-import { LabelFilterInput } from "../../../_components/LabelFilterInput";
+import { MetadataFilterInput } from "../../../_components/MetadataFilterInput";
 import { usePanel } from "./SidepanelContext";
 
 const environmentForm = z.object({
   name: z.string(),
   description: z.string().default(""),
-  targetFilter: z.array(z.object({ key: z.string(), value: z.string() })),
+  operator: z.enum(["and", "or"]),
+  targetFilter: z.array(metadataCondition),
 });
-
-type EnvironmentFormValues = z.infer<typeof environmentForm>;
 
 export const SidebarEnvironmentPanel: React.FC = () => {
   const { getNode, setNodes } = useReactFlow();
@@ -40,61 +47,59 @@ export const SidebarEnvironmentPanel: React.FC = () => {
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
   const workspace = api.workspace.bySlug.useQuery(workspaceSlug);
   const update = api.environment.update.useMutation();
-  const envOverride = api.job.execution.create.byEnvId.useMutation();
+  const envOverride = api.job.trigger.create.byEnvId.useMutation();
 
-  const form = useForm<EnvironmentFormValues>({
-    resolver: zodResolver(environmentForm),
+  const form = useForm({
+    schema: environmentForm,
     defaultValues: {
       name: node.data.label,
       description: node.data.description,
-      targetFilter: Object.entries(
-        node.data.targetFilter as Record<string, string>,
-      ).map(([key, value]) => ({
-        key,
-        value,
-      })),
+      operator: node.data.targetFilter?.operator ?? "and",
+      targetFilter: (node.data.targetFilter?.conditions ??
+        []) as MetadataCondition[],
     },
-    mode: "onChange",
   });
 
-  useEffect(() => {
-    form.setValue("name", node.data.label);
-    form.setValue("description", node.data.description);
-    form.setValue(
-      "targetFilter",
-      Object.entries(node.data.targetFilter as Record<string, string>).map(
-        ([key, value]) => ({
-          key,
-          value,
-        }),
-      ),
-    );
-  }, [node.data.label, node.data.description, node.data.targetFilter, form]);
+  const { operator, targetFilter } = form.watch();
 
-  const { targetFilter } = form.watch();
-  const targets = api.environment.target.byFilter.useQuery(
+  const targets = api.target.byWorkspaceId.list.useQuery(
     {
       workspaceId: workspace.data?.id ?? "",
-      labels: Object.fromEntries(
-        targetFilter.map(({ key, value }) => [key, value]),
-      ),
+      filters: [
+        {
+          type: "comparison",
+          operator,
+          conditions: targetFilter.filter((f) => f.key !== ""),
+        },
+      ],
     },
     { enabled: workspace.data != null },
   );
-
   const { fields, append, remove } = useFieldArray({
     name: "targetFilter",
     control: form.control,
   });
+  const utils = api.useUtils();
 
   const onSubmit = form.handleSubmit((values) => {
     setNodes((nodes) => {
       const node = nodes.find((n) => n.id === selectedNodeId);
       if (!node) return nodes;
-      const targetFilter = Object.fromEntries(
-        values.targetFilter.map(({ key, value }) => [key, value]),
-      );
-      update.mutate({ id: node.id, data: { ...values, targetFilter } });
+      update
+        .mutateAsync({
+          id: node.id,
+          data: {
+            ...values,
+            targetFilter: {
+              type: "comparison",
+              operator,
+              conditions: targetFilter,
+            },
+          },
+        })
+        .then(() =>
+          utils.environment.bySystemId.invalidate(node.data.systemId),
+        );
       return nodes.map((n) =>
         n.id === selectedNodeId
           ? {
@@ -152,7 +157,31 @@ export const SidebarEnvironmentPanel: React.FC = () => {
             </FormItem>
           )}
         />
-        <div>
+        <div className="flex flex-col gap-2">
+          <Label>Target Filter ({targets.data?.total ?? "-"})</Label>
+
+          {fields.length > 1 && (
+            <FormField
+              control={form.control}
+              name="operator"
+              render={({ field: { onChange, value } }) => (
+                <FormItem className="w-24">
+                  <FormControl>
+                    <Select onValueChange={onChange} value={value}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="and">And</SelectItem>
+                        <SelectItem value="or">Or</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          )}
+
           {fields.map((field, index) => (
             <FormField
               control={form.control}
@@ -160,16 +189,15 @@ export const SidebarEnvironmentPanel: React.FC = () => {
               name={`targetFilter.${index}`}
               render={({ field: { onChange, value } }) => (
                 <FormItem>
-                  <FormLabel className={cn(index !== 0 && "sr-only")}>
-                    Target Filter ({targets.data?.length ?? "-"})
-                  </FormLabel>
-                  <FormControl>
-                    <LabelFilterInput
+                  <FormControl className="w-fit">
+                    <MetadataFilterInput
                       value={value}
                       onChange={onChange}
                       onRemove={() => remove(index)}
                       workspaceId={workspace.data?.id}
-                      numInputs={fields.length}
+                      selectedKeys={fields
+                        .map((f) => f.operator !== "null" && f.value)
+                        .filter((f) => f !== false)}
                     />
                   </FormControl>
                 </FormItem>
@@ -180,11 +208,17 @@ export const SidebarEnvironmentPanel: React.FC = () => {
             type="button"
             variant="outline"
             size="sm"
-            className="mt-4"
-            //   disabled={isLastEmpty}
-            onClick={() => append({ key: "", value: "" })}
+            className="mt-2 w-fit"
+            onClick={() =>
+              append({
+                key: "",
+                value: "",
+                type: "metadata",
+                operator: "equals" as const,
+              })
+            }
           >
-            Add Label
+            Add Metadata Filter
           </Button>
         </div>
 

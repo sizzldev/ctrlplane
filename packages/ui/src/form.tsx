@@ -17,6 +17,7 @@ import {
   Controller,
   FormProvider,
   useFormContext,
+  useFormState,
 } from "react-hook-form";
 
 import { cn } from "@ctrlplane/ui";
@@ -178,7 +179,7 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn("text-[0.8rem] font-medium text-destructive", className)}
+      className={cn("text-sm font-medium text-destructive", className)}
       {...props}
     >
       {body}
@@ -186,6 +187,27 @@ const FormMessage = React.forwardRef<
   );
 });
 FormMessage.displayName = "FormMessage";
+
+const FormRootError = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => {
+  const { errors } = useFormState();
+  const rootError = errors.root;
+  if (!rootError) {
+    return null;
+  }
+  return (
+    <p
+      ref={ref}
+      className={cn("text-sm font-medium text-destructive", className)}
+      {...props}
+    >
+      {rootError.message}
+    </p>
+  );
+});
+FormRootError.displayName = "FormRootError";
 
 export {
   useForm,
@@ -197,6 +219,7 @@ export {
   FormDescription,
   FormMessage,
   FormField,
+  FormRootError,
 };
 
 export { useFieldArray } from "react-hook-form";

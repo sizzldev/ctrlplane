@@ -1,3 +1,4 @@
+import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
 import { TRPCError } from "@trpc/server";
@@ -112,14 +113,27 @@ const reposRouter = createTRPCRouter({
             installationId: installation.id,
           })) as { token: string };
 
-          const { data } = await installationOctokit.repos.listForOrg({
-            org: input.owner,
-            headers: {
-              "X-GitHub-Api-Version": "2022-11-28",
-              authorization: `Bearer ${installationToken.token}`,
-            },
-          });
-          return data;
+          type Repo =
+            RestEndpointMethodTypes["repos"]["listForOrg"]["response"]["data"][number];
+          const repos: Repo[] = [];
+
+          const getRepos = async (page: number) => {
+            const { data } = await installationOctokit.repos.listForOrg({
+              org: input.owner,
+              per_page: 100,
+              page,
+              headers: {
+                "X-GitHub-Api-Version": "2022-11-28",
+                authorization: `Bearer ${installationToken.token}`,
+              },
+            });
+            repos.push(...data);
+            if (data.length < 100) return;
+            return getRepos(page + 1);
+          };
+
+          await getRepos(1);
+          return repos;
         }),
     ),
 
@@ -243,39 +257,6 @@ export const githubRouter = createTRPCRouter({
           ),
       ),
 
-    byWorkspaceId: protectedProcedure
-      .meta({
-        authorizationCheck: ({ canUser, input }) =>
-          canUser.perform(Permission.WorkspaceListIntegrations).on({
-            type: "workspace",
-            id: input,
-          }),
-      })
-      .input(z.string().uuid())
-      .query(async ({ ctx, input }) => {
-        const internalOrgs = await ctx.db
-          .select()
-          .from(githubOrganization)
-          .where(eq(githubOrganization.workspaceId, input));
-
-        return getOctokit()
-          .apps.listInstallations({
-            headers: {
-              "X-GitHub-Api-Version": "2022-11-28",
-            },
-          })
-          .then(({ data: installations }) =>
-            Promise.all(
-              installations.filter(
-                (i) =>
-                  i.target_type === "Organization" &&
-                  internalOrgs.find((org) => org.installationId === i.id) !=
-                    null,
-              ),
-            ),
-          );
-      }),
-
     list: protectedProcedure
       .meta({
         authorizationCheck: ({ canUser, input }) =>
@@ -333,34 +314,6 @@ export const githubRouter = createTRPCRouter({
       })
       .input(githubOrganizationInsert)
       .mutation(({ ctx, input }) => createNewGithubOrganization(ctx.db, input)),
-
-    update: protectedProcedure
-      .meta({
-        authorizationCheck: ({ canUser, input }) =>
-          canUser.perform(Permission.WorkspaceUpdate).on({
-            type: "workspace",
-            id: input.data.workspaceId,
-          }),
-      })
-      .input(
-        z.object({
-          id: z.string().uuid(),
-          data: z.object({
-            connected: z.boolean().optional(),
-            installationId: z.number().optional(),
-            organizationName: z.string().optional(),
-            organizationId: z.string().optional(),
-            addedByUserId: z.string().optional(),
-            workspaceId: z.string().optional(),
-          }),
-        }),
-      )
-      .mutation(({ ctx, input }) =>
-        ctx.db
-          .update(githubOrganization)
-          .set(input.data)
-          .where(eq(githubOrganization.id, input.id)),
-      ),
 
     delete: protectedProcedure
       .meta({

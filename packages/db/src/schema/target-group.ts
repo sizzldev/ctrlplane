@@ -1,8 +1,11 @@
-import { pgTable, text, uuid } from "drizzle-orm/pg-core";
+import type { InferSelectModel } from "drizzle-orm";
+import { boolean, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
 import { workspace } from "./workspace.js";
 
-export const targetLabelGroup = pgTable("target_label_group", {
+export const targetMetadataGroup = pgTable("target_metadata_group", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id")
     .notNull()
@@ -10,4 +13,17 @@ export const targetLabelGroup = pgTable("target_label_group", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   keys: text("keys").array().notNull(),
+  includeNullCombinations: boolean("include_null_combinations")
+    .notNull()
+    .default(false),
 });
+
+export const createTargetMetadataGroup = createInsertSchema(targetMetadataGroup)
+  .omit({
+    id: true,
+  })
+  .extend({
+    keys: z.array(z.string()),
+  });
+export const updateTargetMetadataGroup = createTargetMetadataGroup.partial();
+export type TargetMetadataGroup = InferSelectModel<typeof targetMetadataGroup>;

@@ -5,9 +5,9 @@ import { z } from "zod";
 
 import {
   and,
-  arrayContains,
   eq,
   isNull,
+  not,
   takeFirst,
   takeFirstOrNull,
 } from "@ctrlplane/db";
@@ -21,20 +21,21 @@ import {
   environmentPolicyApproval,
   environmentPolicyDeployment,
   environmentPolicyReleaseWindow,
-  jobConfig,
   release,
+  releaseJobTrigger,
   setPolicyReleaseWindow,
   system,
   target,
-  targetProvider,
+  targetMatchesMetadata,
   updateEnvironment,
   updateEnvironmentPolicy,
 } from "@ctrlplane/db/schema";
 import {
-  cancelOldJobConfigsOnJobDispatch,
-  createJobConfigs,
-  createJobExecutionApprovals,
-  dispatchJobConfigs,
+  cancelOldReleaseJobTriggersOnJobDispatch,
+  createJobApprovals,
+  createReleaseJobTriggers,
+  dispatchJobsForNewTargets,
+  dispatchReleaseJobTriggers,
   isPassingAllPolicies,
   isPassingReleaseSequencingCancelPolicy,
 } from "@ctrlplane/job-dispatch";
@@ -169,7 +170,7 @@ const policyRouter = createTRPCRouter({
           .returning()
           .then(takeFirst);
 
-        const jobConfigs = await ctx.db
+        const releaseJobTriggers = await ctx.db
           .select()
           .from(environmentPolicyApproval)
           .innerJoin(
@@ -180,7 +181,10 @@ const policyRouter = createTRPCRouter({
             environment,
             eq(environment.policyId, environmentPolicy.id),
           )
-          .innerJoin(jobConfig, eq(jobConfig.environmentId, environment.id))
+          .innerJoin(
+            releaseJobTrigger,
+            eq(releaseJobTrigger.environmentId, environment.id),
+          )
           .where(
             and(
               eq(environmentPolicyApproval.id, envApproval.id),
@@ -188,10 +192,10 @@ const policyRouter = createTRPCRouter({
             ),
           );
 
-        await dispatchJobConfigs(ctx.db)
-          .jobConfigs(jobConfigs.map((t) => t.job_config))
+        await dispatchReleaseJobTriggers(ctx.db)
+          .releaseTriggers(releaseJobTriggers.map((t) => t.release_job_trigger))
           .filter(isPassingAllPolicies)
-          .then(cancelOldJobConfigsOnJobDispatch)
+          .then(cancelOldReleaseJobTriggersOnJobDispatch)
           .dispatch();
       }),
 
@@ -365,74 +369,11 @@ export const createEnv = async (
   db: Tx,
   input: z.infer<typeof createEnvironment>,
 ) => {
-  const env = await db
-    .insert(environment)
-    .values(input)
-    .returning()
-    .then(takeFirst);
-
-  return db
-    .update(environment)
-    .set({ targetFilter: { "environment-id": env.id } })
-    .where(eq(environment.id, env.id))
-    .returning()
-    .then(takeFirst);
+  return db.insert(environment).values(input).returning().then(takeFirst);
 };
-
-const tragetRouter = createTRPCRouter({
-  byEnvironmentId: protectedProcedure
-    .meta({
-      authorizationCheck: ({ canUser, input }) =>
-        canUser
-          .perform(Permission.TargetList)
-          .on({ type: "environment", id: input }),
-    })
-    .input(z.string())
-    .query(async ({ ctx, input }) =>
-      ctx.db
-        .select()
-        .from(environment)
-        .innerJoin(
-          target,
-          arrayContains(target.labels, environment.targetFilter),
-        )
-        .leftJoin(targetProvider, eq(targetProvider.id, target.providerId))
-        .where(and(eq(environment.id, input), isNull(environment.deletedAt)))
-        .then((d) =>
-          d.map((d) => ({ ...d.target, provider: d.target_provider })),
-        ),
-    ),
-
-  byFilter: protectedProcedure
-    .meta({
-      authorizationCheck: ({ canUser, input }) =>
-        canUser
-          .perform(Permission.TargetList)
-          .on({ type: "workspace", id: input.workspaceId }),
-    })
-    .input(
-      z.object({
-        workspaceId: z.string().uuid(),
-        labels: z.record(z.string()),
-      }),
-    )
-    .query(async ({ ctx, input }) =>
-      ctx.db
-        .select()
-        .from(target)
-        .where(
-          and(
-            arrayContains(target.labels, input.labels),
-            eq(target.workspaceId, input.workspaceId),
-          ),
-        ),
-    ),
-});
 
 export const environmentRouter = createTRPCRouter({
   policy: policyRouter,
-
-  target: tragetRouter,
 
   deploy: protectedProcedure
     .meta({
@@ -466,24 +407,27 @@ export const environmentRouter = createTRPCRouter({
         .then(takeFirstOrNull);
       if (!rel) throw new Error("Release not found");
 
-      const jobConfigs = await createJobConfigs(ctx.db, "redeploy")
+      const releaseJobTriggers = await createReleaseJobTriggers(
+        ctx.db,
+        "redeploy",
+      )
         .causedById(ctx.session.user.id)
         .environments([env.id])
         .releases([rel.release.id])
         .filter(isPassingReleaseSequencingCancelPolicy)
-        .then(createJobExecutionApprovals)
+        .then(createJobApprovals)
         .insert();
 
-      await dispatchJobConfigs(ctx.db)
-        .jobConfigs(jobConfigs)
+      await dispatchReleaseJobTriggers(ctx.db)
+        .releaseTriggers(releaseJobTriggers)
         .filter(isPassingAllPolicies)
-        .then(cancelOldJobConfigsOnJobDispatch)
+        .then(cancelOldReleaseJobTriggersOnJobDispatch)
         .dispatch();
 
       return {
         environment: env,
         release: { ...rel.release, deployment: rel.deployment },
-        jobConfigs,
+        releaseJobTriggers,
       };
     }),
 
@@ -523,24 +467,25 @@ export const environmentRouter = createTRPCRouter({
         .select()
         .from(environment)
         .innerJoin(system, eq(system.id, environment.systemId))
-        .leftJoin(
-          target,
-          and(
-            arrayContains(target.labels, environment.targetFilter),
-            eq(target.workspaceId, system.workspaceId),
-          ),
-        )
         .where(
           and(eq(environment.systemId, input), isNull(environment.deletedAt)),
         );
 
-      return _.chain(envs)
-        .groupBy((d) => d.environment.id)
-        .map((envs) => ({
-          ...envs.at(0)!.environment,
-          targets: envs.map((e) => e.target).filter(isPresent),
-        }))
-        .value();
+      return await Promise.all(
+        envs.map(async (e) => ({
+          ...e.environment,
+          system: e.system,
+          targets:
+            e.environment.targetFilter != null
+              ? await ctx.db
+                  .select()
+                  .from(target)
+                  .where(
+                    targetMatchesMetadata(ctx.db, e.environment.targetFilter),
+                  )
+              : [],
+        })),
+      );
     }),
 
   create: protectedProcedure
@@ -563,14 +508,58 @@ export const environmentRouter = createTRPCRouter({
           .on({ type: "environment", id: input.id }),
     })
     .input(z.object({ id: z.string().uuid(), data: updateEnvironment }))
-    .mutation(({ ctx, input }) =>
-      ctx.db
+    .mutation(async ({ ctx, input }) => {
+      const oldEnv = await ctx.db
+        .select()
+        .from(environment)
+        .innerJoin(system, eq(system.id, environment.systemId))
+        .where(eq(environment.id, input.id))
+        .then(takeFirst);
+
+      await ctx.db
         .update(environment)
         .set(input.data)
         .where(eq(environment.id, input.id))
         .returning()
-        .then(takeFirst),
-    ),
+        .then(takeFirst);
+
+      const { targetFilter } = input.data;
+      const isUpdatingTargetFilter = targetFilter != null;
+      if (isUpdatingTargetFilter) {
+        const hasTargetFiltersChanged = !_.isEqual(
+          oldEnv.environment.targetFilter,
+          targetFilter,
+        );
+
+        if (hasTargetFiltersChanged) {
+          const oldQuery = targetMatchesMetadata(
+            ctx.db,
+            oldEnv.environment.targetFilter,
+          );
+          const newTargets = await ctx.db
+            .select({ id: target.id })
+            .from(target)
+            .where(
+              and(
+                eq(target.workspaceId, oldEnv.system.workspaceId),
+                targetMatchesMetadata(ctx.db, targetFilter),
+                oldQuery && not(oldQuery),
+              ),
+            );
+
+          if (newTargets.length > 0) {
+            await dispatchJobsForNewTargets(
+              ctx.db,
+              newTargets.map((t) => t.id),
+              input.id,
+            );
+            console.log(
+              `Found ${newTargets.length} new targets for environment ${input.id}`,
+            );
+          }
+        }
+      }
+    }),
 
   delete: protectedProcedure
     .meta({

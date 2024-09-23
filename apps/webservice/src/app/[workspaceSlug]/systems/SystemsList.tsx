@@ -22,12 +22,13 @@ import { ContentDialog } from "../_components/filter/FilterDropdownItems";
 import { NoFilterMatch } from "../_components/filter/NoFilterMatch";
 import { SystemsTable } from "./SystemsTable";
 
-export const SystemsList: React.FC<{ workspace: Workspace }> = ({
-  workspace,
-}) => {
+export const SystemsList: React.FC<{
+  workspace: Workspace;
+  systemsCount: number;
+}> = ({ workspace, systemsCount }) => {
   const { filters, addFilters, removeFilter, clearFilters } =
     useFilters<SystemFilter>();
-  const systemsAll = api.system.list.useQuery({ workspaceId: workspace.id });
+
   const systems = api.system.list.useQuery({
     workspaceId: workspace.id,
     filters,
@@ -53,8 +54,7 @@ export const SystemsList: React.FC<{ workspace: Workspace }> = ({
                 ) : (
                   <HoverCard>
                     <HoverCardTrigger>
-                      {Object.entries(f.value).length} label
-                      {Object.entries(f.value).length > 1 ? "s" : ""}
+                      {Object.entries(f.value).length} metadata
                     </HoverCardTrigger>
                     <HoverCardContent className="p-2" align="start">
                       {Object.entries(f.value).map(([key, value]) => (
@@ -86,7 +86,7 @@ export const SystemsList: React.FC<{ workspace: Workspace }> = ({
             addFilters={addFilters}
             className="min-w-[200px] bg-neutral-900 p-1"
           >
-            <ContentDialog property="name">
+            <ContentDialog<SystemFilter> property="name">
               <TbTarget /> Name
             </ContentDialog>
           </FilterDropdown>
@@ -119,7 +119,7 @@ export const SystemsList: React.FC<{ workspace: Workspace }> = ({
 
       {systems.isSuccess && systems.data.total === 0 && (
         <NoFilterMatch
-          numItems={systemsAll.data?.total ?? 0}
+          numItems={systemsCount}
           itemType="system"
           onClear={clearFilters}
         />

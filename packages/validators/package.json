@@ -20,6 +20,10 @@
       "types": "./src/jobs/index.ts",
       "default": "./dist/jobs/index.js"
     },
+    "./variables": {
+      "types": "./src/variables/index.ts",
+      "default": "./dist/variables/index.js"
+    },
     "./github": {
       "types": "./src/github/index.ts",
       "default": "./dist/github/index.js"
@@ -47,7 +51,7 @@
     "@ctrlplane/tsconfig": "workspace:*",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "typescript": "^5.4.5"
+    "typescript": "^5.6.2"
   },
   "prettier": "@ctrlplane/prettier-config"
 }

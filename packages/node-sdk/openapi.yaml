@@ -48,7 +48,6 @@ paths:
                   - workspaceId
         "500":
           description: Internal server error
-
   /v1/{workspace}/target-provider/name/{name}:
     get:
       summary: Upserts a target provider.
@@ -88,17 +87,11 @@ paths:
           description: Provider not found
         "500":
           description: Internal server error
-  /v1/{workspace}/target-provider/{providerId}/set:
+  /v1/target-provider/{providerId}/set:
     patch:
       summary: Sets the target for a provider.
       operationId: setTargetProvidersTargets
       parameters:
-        - name: workspace
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Name of the workspace
         - name: providerId
           in: path
           required: true
@@ -119,27 +112,27 @@ paths:
                   items:
                     type: object
                     properties:
+                      identifier:
+                        type: string
                       name:
                         type: string
                       version:
                         type: string
                       kind:
                         type: string
-                      provider:
-                        type: string
                       config:
                         type: object
-                      labels:
+                      metadata:
                         type: object
                         additionalProperties:
                           type: string
                     required:
+                      - identifier
                       - name
                       - version
                       - kind
-                      - provider
                       - config
-                      - labels
+                      - metadata
       responses:
         "200":
           description: Successfully updated the deployment target
@@ -149,10 +142,10 @@ paths:
           description: Deployment target not found
         "500":
           description: Internal server error
-  /v1/job/agents/{agentId}/executions/running:
+  /v1/job-agents/{agentId}/jobs/running:
     get:
-      summary: Get a running agents execution
-      operationId: getAgentRunningExecutions
+      summary: Get a agents running jobs
+      operationId: getAgentRunningJob
       parameters:
         - name: agentId
           in: path
@@ -203,7 +196,7 @@ paths:
                     - jobAgentConfig
                     - externalRunId
                     - config
-  /v1/job/agents/{agentId}/queue/next:
+  /v1/job-agents/{agentId}/queue/next:
     get:
       summary: Get the next jobs
       operationId: getNextJobs
@@ -222,7 +215,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  jobExecutions:
+                  jobs:
                     type: array
                     items:
                       type: object
@@ -238,21 +231,21 @@ paths:
                           type: object
                         message:
                           type: string
-                        jobConfigId:
+                        releaseJobTriggerId:
                           type: string
                       required:
                         - id
                         - status
                         - message
-                        - jobConfigId
+                        - releaseJobTriggerId
                         - jobAgentId
                         - jobAgentConfig
-  /v1/job/executions/{executionId}:
+  /v1/job/{jobId}:
     get:
-      summary: Get a job execution
-      operationId: getJobExecution
+      summary: Get a job
+      operationId: getJob
       parameters:
-        - name: executionId
+        - name: jobId
           in: path
           required: true
           schema:
@@ -266,23 +259,11 @@ paths:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: string
-                  status:
-                    type: string
-                  message:
-                    type: string
-                  jobAgentId:
-                    type: string
-                  jobAgentConfig:
+                  job:
                     type: object
-                  externalRunId:
-                    type: string
                   release:
                     type: object
                   deployment:
-                    type: object
-                  config:
                     type: object
                   runbook:
                     type: object
@@ -290,19 +271,16 @@ paths:
                     type: object
                   environment:
                     type: object
+                  variable:
+                    type: object
                 required:
-                  - id
-                  - status
-                  - message
-                  - jobAgentId
-                  - jobAgentConfig
-                  - externalRunId
-                  - config
+                  - job
+                  - variable
     patch:
-      summary: Update a job execution
-      operationId: updateJobExecution
+      summary: Update a job
+      operationId: updateJob
       parameters:
-        - name: executionId
+        - name: jobId
           in: path
           required: true
           schema:
@@ -335,12 +313,12 @@ paths:
                     type: string
                 required:
                   - id
-  /v1/job/executions/{executionId}/acknowledge:
+  /v1/job/{jobId}/acknowledge:
     post:
       summary: Acknowledge a job
       operationId: acknowledgeJob
       parameters:
-        - name: executionId
+        - name: jobId
           in: path
           required: true
           schema:
@@ -358,3 +336,11 @@ paths:
                     type: boolean
                 required:
                   - success
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+security:
+  - apiKey: []

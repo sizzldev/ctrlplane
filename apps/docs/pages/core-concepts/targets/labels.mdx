@@ -1,27 +1,72 @@
-# Labels
+# Target Metadata
 
-Labels are key-value pairs attached to Targets. They provide a
-flexible way to categorize and identify your Targets based on their
-characteristics. Examples of labels might include:
+Target metadata in Ctrlplane are key-value pairs that provide a flexible way to
+categorize and organize your deployment targets. They play a crucial role in
+defining deployment strategies, filtering targets, and applying configurations
+selectively.
+
+## Understanding Target Metadata
+
+Metadata is attached to targets, allowing you to group and select
+targets based on various criteria. They are particularly useful for:
+
+- Organizing targets by environment, region, or purpose
+- Applying configurations to specific groups of targets
+- Filtering targets for deployment or management tasks
+- Applying variable values to specific targets during deployment
+
+## How Metadata Works in Ctrlplane
+
+1. **Definition**: Metadata are defined as key-value pairs on individual targets.
+2. **Flexibility**: You can assign multiple key-value pairs to a single target.
+3. **Querying**: Ctrlplane allows you to query and filter targets based on their
+   metadata.
+4. **Selective Application**: Use metadata to apply configurations or run
+   deployments on specific subsets of targets.
+
+## Examples of Target Metadata
+
+Here are some common examples of how you might use metadata in Ctrlplane:
 
 ```yaml
-region: us-west-2
-type: eks
+environment: production
+region: us-west
+role: web-server
 tier: frontend
-customer: acme-corp
+---
+environment: staging
+region: eu-central
+role: database
+tier: backend
 ```
 
-## Filtering with Labels
+## Best Practices for Using Metadata
 
-Environments use label selectors to determine which Targets should
-trigger their associated workflows. A label selector is a simple expression that
-filters Targets based on their labels.
+1. **Consistency**: Establish a consistent metadata scheme across your
+   organization.
+2. **Granularity**: Use metadata that provide the right level of detail for your
+   needs.
+3. **Documentation**: Maintain clear documentation of your metadata taxonomy.
+4. **Avoid Overloading**: Don't try to encode too much information in a single
+   metadata key.
+5. **Regular Review**: Periodically review and update your metadata strategy as
+   your infrastructure evolves.
 
-## App Labels
+By effectively using target metadata in Ctrlplane, you can create more flexible,
+manageable, and scalable deployment strategies that adapt to your organization's
+evolving needs.
 
-These are common labels that can be added to targets. which will
-provide some functionaility in the UI. Each kind will also have specific.
+## Special Labels
 
-| Label                      | Description                                                                                                                                                                                   |
-| :------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ctrlplane.dev/deployment` | System slug and deployment slug. This pairing is used to trace the resource back to its originating deployment. This information is essential for visualizing dependencies between resources. |
+In Ctrlplane, we have special labels that can be added to targets to enhance the
+user experience in the UI. These labels do not change the core functionality of
+Ctrlplane but provide additional features and visual cues for better usability.
+
+| Label                         | Description                                                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ctrlplane/links`             | Provides a set of links related to the target. The value should be a JSON object where the keys are the link names and the values are the URLs. |
+| `ctrlplane/created-by-job-id` | UUID of the Ctrlplane Job that created the target.                                                                                              |
+| `ctrlplane/external-id`       | An external identifier for the target, which can be used to correlate the target with resources in other systems.                               |
+| `ctrlplane/cloud-platform`    | The cloud platform the target is running on (e.g., AWS, GCP, Azure).                                                                            |
+| `ctrlplane/region`            | The geographical region or data center location where the target is deployed.                                                                   |
+| `ctrlplane/parent-target-id`  | The UUID of the parent target, if the target is a child resource of another target.                                                             |

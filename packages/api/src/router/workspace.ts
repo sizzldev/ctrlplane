@@ -16,6 +16,7 @@ import {
   createWorkspace,
   entityRole,
   role,
+  target,
   updateWorkspace,
   user,
   workspace,
@@ -241,10 +242,8 @@ export const workspaceRouter = createTRPCRouter({
 
         await tx.insert(entityRole).values({
           roleId: predefinedRoles.admin.id,
-
           scopeType: "workspace",
           scopeId: w.id,
-
           entityType: "user",
           entityId: ctx.session.user.id,
         });
@@ -298,4 +297,22 @@ export const workspaceRouter = createTRPCRouter({
         .then(takeFirstOrNull)
         .then((w) => w?.workspace ?? null),
     ),
+
+  targetKinds: protectedProcedure
+    .meta({
+      authorizationCheck: ({ canUser, input }) =>
+        canUser
+          .perform(Permission.TargetList)
+          .on({ type: "workspace", id: input }),
+    })
+    .input(z.string().uuid())
+    .query(async ({ ctx, input }) => {
+      const kinds = await ctx.db
+        .selectDistinct({ kind: target.kind })
+        .from(target)
+        .where(eq(target.workspaceId, input))
+        .orderBy(asc(target.kind));
+
+      return kinds.map((row) => row.kind);
+    }),
 });

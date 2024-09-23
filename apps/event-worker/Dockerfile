@@ -1,5 +1,5 @@
 # https://github.com/WhiskeySockets/Baileys/issues/1003#issuecomment-2306467419
-ARG NODE_VERSION=20 
+ARG NODE_VERSION=20
 FROM node:${NODE_VERSION}-alpine
 
 RUN apk add --no-cache libc6-compat python3 make g++ bash nano
@@ -40,4 +40,6 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nodejs
 USER nodejs
 
-CMD node apps/event-worker/dist/index.js
+ENV NODE_ENV=production
+
+CMD ["node", "apps/event-worker/dist/index.js"]

@@ -3,11 +3,9 @@ import { z } from "zod";
 
 import {
   and,
-  arrayContains,
   eq,
   inArray,
-  isNull,
-  or,
+  isNotNull,
   sql,
   takeFirst,
   takeFirstOrNull,
@@ -16,21 +14,18 @@ import {
   createDeployment,
   deployment,
   environment,
+  job,
   jobAgent,
-  jobConfig,
-  jobExecution,
   release,
+  releaseJobTrigger,
   system,
   target,
+  targetMatchesMetadata,
   updateDeployment,
   workspace,
 } from "@ctrlplane/db/schema";
-import {
-  cancelOldJobConfigsOnJobDispatch,
-  dispatchJobConfigs,
-  isPassingAllPolicies,
-} from "@ctrlplane/job-dispatch";
 import { Permission } from "@ctrlplane/validators/auth";
+import { JobStatus } from "@ctrlplane/validators/jobs";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { deploymentVariableRouter } from "./deployment-variable";
@@ -61,41 +56,36 @@ export const deploymentRouter = createTRPCRouter({
     })
     .input(z.string())
     .query(({ ctx, input }) => {
-      const latestCompletedJobExecution = ctx.db
+      const latestCompletedJob = ctx.db
         .select({
-          id: jobExecution.id,
-          jobConfigId: jobExecution.jobConfigId,
-          status: jobExecution.status,
-          rank: sql<number>`ROW_NUMBER() OVER (PARTITION BY job_config.target_id, job_config.environment_id ORDER BY job_config.created_at DESC)`.as(
+          id: job.id,
+          status: job.status,
+          rank: sql<number>`ROW_NUMBER() OVER (ORDER BY job.created_at DESC)`.as(
             "rank",
           ),
         })
-        .from(jobExecution)
-        .innerJoin(jobConfig, eq(jobConfig.id, jobExecution.jobConfigId))
-        .where(eq(jobExecution.status, "completed"))
-        .as("jobExecution");
+        .from(job)
+        .where(eq(job.status, "completed"))
+        .as("job");
 
       return ctx.db
         .select()
-        .from(latestCompletedJobExecution)
+        .from(latestCompletedJob)
         .innerJoin(
-          jobConfig,
-          eq(jobConfig.id, latestCompletedJobExecution.jobConfigId),
+          releaseJobTrigger,
+          eq(releaseJobTrigger.jobId, latestCompletedJob.id),
         )
-        .innerJoin(release, eq(release.id, jobConfig.releaseId))
-        .innerJoin(target, eq(target.id, jobConfig.targetId))
+        .innerJoin(release, eq(release.id, releaseJobTrigger.releaseId))
+        .innerJoin(target, eq(target.id, releaseJobTrigger.targetId))
         .where(
-          and(
-            eq(release.deploymentId, input),
-            eq(latestCompletedJobExecution.rank, 1),
-          ),
+          and(eq(release.deploymentId, input), eq(latestCompletedJob.rank, 1)),
         )
         .then((r) =>
           r.map((row) => ({
-            ...row.jobExecution,
+            ...row.job,
             release: row.release,
             target: row.target,
-            jobConfig: row.job_config,
+            releaseJobTrigger: row.release_job_trigger,
           })),
         );
     }),
@@ -124,36 +114,7 @@ export const deploymentRouter = createTRPCRouter({
       ctx.db
         .update(deployment)
         .set(input.data)
-        .where(eq(deployment.id, input.id))
-        .returning()
-        .then(takeFirst)
-        .then((d) =>
-          input.data.jobAgentConfig != null
-            ? ctx.db
-                .select()
-                .from(deployment)
-                .innerJoin(release, eq(release.deploymentId, deployment.id))
-                .innerJoin(jobConfig, eq(jobConfig.releaseId, release.id))
-                .leftJoin(
-                  jobExecution,
-                  eq(jobExecution.jobConfigId, jobConfig.id),
-                )
-                .where(
-                  and(
-                    eq(deployment.id, input.id),
-                    isNull(jobExecution.jobConfigId),
-                  ),
-                )
-                .then((jobConfigs) =>
-                  dispatchJobConfigs(ctx.db)
-                    .jobConfigs(jobConfigs.map((jc) => jc.job_config))
-                    .filter(isPassingAllPolicies)
-                    .then(cancelOldJobConfigsOnJobDispatch)
-                    .dispatch()
-                    .then(() => d),
-                )
-            : d,
-        ),
+        .where(eq(deployment.id, input.id)),
     ),
 
   delete: protectedProcedure
@@ -262,47 +223,72 @@ export const deploymentRouter = createTRPCRouter({
           .perform(Permission.DeploymentList)
           .on({ type: "target", id: input }),
     })
-    .query(({ ctx, input }) =>
-      ctx.db
-        .selectDistinctOn([deployment.id])
-        .from(deployment)
-        .innerJoin(system, eq(system.id, deployment.systemId))
-        .innerJoin(environment, eq(environment.systemId, system.id))
-        .innerJoin(
-          target,
-          arrayContains(target.labels, environment.targetFilter),
-        )
-        .leftJoin(jobConfig, eq(jobConfig.targetId, target.id))
-        .leftJoin(jobExecution, eq(jobConfig.id, jobExecution.jobConfigId))
-        .leftJoin(release, eq(release.id, jobConfig.releaseId))
+    .query(async ({ ctx, input }) => {
+      const tg = await ctx.db
+        .select()
+        .from(target)
+        .where(eq(target.id, input))
+        .then(takeFirst);
+
+      const envs = await ctx.db
+        .select()
+        .from(environment)
+        .innerJoin(system, eq(environment.systemId, system.id))
         .where(
           and(
-            eq(target.id, input),
-            isNull(environment.deletedAt),
-            or(
-              isNull(jobExecution.id),
-              inArray(jobExecution.status, [
-                "completed",
-                "pending",
-                "in_progress",
-              ]),
-            ),
+            eq(system.workspaceId, tg.workspaceId),
+            isNotNull(environment.targetFilter),
           ),
-        )
-        .orderBy(deployment.id, jobConfig.createdAt)
-        .then((r) =>
-          r.map((row) => ({
-            ...row.deployment,
-            environment: row.environment,
-            system: row.system,
-            jobConfig: {
-              ...row.job_config,
-              execution: row.job_execution,
-              release: row.release,
-            },
-          })),
+        );
+
+      return Promise.all(
+        envs.map((env) =>
+          ctx.db
+            .select()
+            .from(deployment)
+            .innerJoin(system, eq(system.id, deployment.systemId))
+            .innerJoin(environment, eq(environment.systemId, system.id))
+            .leftJoin(release, eq(release.deploymentId, deployment.id))
+            .innerJoin(
+              target,
+              targetMatchesMetadata(ctx.db, env.environment.targetFilter),
+            )
+            .leftJoin(
+              releaseJobTrigger,
+              and(
+                eq(releaseJobTrigger.targetId, target.id),
+                eq(releaseJobTrigger.releaseId, release.id),
+                eq(releaseJobTrigger.environmentId, environment.id),
+              ),
+            )
+            .leftJoin(job, eq(releaseJobTrigger.jobId, job.id))
+
+            .where(
+              and(
+                eq(target.id, input),
+                inArray(job.status, [
+                  JobStatus.Completed,
+                  JobStatus.Pending,
+                  JobStatus.InProgress,
+                ]),
+              ),
+            )
+            .orderBy(deployment.id, releaseJobTrigger.createdAt)
+            .then((r) =>
+              r.map((row) => ({
+                ...row.deployment,
+                environment: row.environment,
+                system: row.system,
+                releaseJobTrigger: {
+                  ...row.release_job_trigger,
+                  job: row.job,
+                  release: row.release,
+                },
+              })),
+            ),
         ),
-    ),
+      ).then((r) => r.flat());
+    }),
 
   byWorkspaceId: protectedProcedure
     .meta({

@@ -1,20 +1,19 @@
-import type { JobExecutionStatus } from "@ctrlplane/db/schema";
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
 
-import { JobExecutionStatus as JEStatus } from "@ctrlplane/validators/jobs";
+import { JobStatus as JStatus } from "@ctrlplane/validators/jobs";
 
 import { env } from "./config.js";
 
-export const convertStatus = (status: string): JobExecutionStatus => {
-  if (status === "success" || status === "neutral") return JEStatus.Completed;
+export const convertStatus = (status: string): JStatus => {
+  if (status === "success" || status === "neutral") return JStatus.Completed;
   if (status === "queued" || status === "requested" || status === "waiting")
-    return JEStatus.Pending;
-  if (status === "timed_out" || status === "stale") return JEStatus.Failure;
-  return status as JobExecutionStatus;
+    return JStatus.InProgress;
+  if (status === "timed_out" || status === "stale") return JStatus.Failure;
+  return status as JStatus;
 };
 
-export const getOctokit = () =>
+export const getInstallationOctokit = (installationId: number) =>
   env.GITHUB_BOT_APP_ID &&
   env.GITHUB_BOT_PRIVATE_KEY &&
   env.GITHUB_BOT_CLIENT_ID &&
@@ -26,6 +25,7 @@ export const getOctokit = () =>
           privateKey: env.GITHUB_BOT_PRIVATE_KEY,
           clientId: env.GITHUB_BOT_CLIENT_ID,
           clientSecret: env.GITHUB_BOT_CLIENT_SECRET,
+          installationId,
         },
       })
     : null;

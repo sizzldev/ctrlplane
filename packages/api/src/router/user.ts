@@ -1,19 +1,15 @@
-import { hash } from "bcryptjs";
 import { omit } from "lodash";
-import { v4 } from "uuid";
 import { z } from "zod";
 
-import { can } from "@ctrlplane/auth/utils";
+import { can, generateApiKey, hash } from "@ctrlplane/auth/utils";
 import { and, eq, takeFirst } from "@ctrlplane/db";
-import { scopeType, user, userApiKey } from "@ctrlplane/db/schema";
+import { scopeType, updateUser, user, userApiKey } from "@ctrlplane/db/schema";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const profileRouter = createTRPCRouter({
   update: protectedProcedure
-    .input(
-      z.object({ activeWorkspaceId: z.string().uuid().nullable().optional() }),
-    )
+    .input(updateUser)
     .mutation(({ ctx, input }) =>
       ctx.db
         .update(user)
@@ -67,19 +63,21 @@ export const userRouter = createTRPCRouter({
     create: protectedProcedure
       .input(z.object({ name: z.string() }))
       .mutation(async ({ ctx, input }) => {
-        const key = v4();
-        const keyHash = await hash(key, 10);
+        const { prefix, apiKey: key, secret } = generateApiKey();
+
         const apiKey = await ctx.db
           .insert(userApiKey)
           .values({
             ...input,
             userId: ctx.session.user.id,
-            keyPreview: key.slice(0, 8),
-            keyHash,
+            keyPreview: prefix.slice(0, 10),
+            keyHash: hash(secret),
+            keyPrefix: prefix,
             expiresAt: null,
           })
           .returning()
           .then(takeFirst);
+
         return { ...input, key, id: apiKey.id };
       }),
 

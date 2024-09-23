@@ -19,6 +19,12 @@ const config = {
     "@ctrlplane/job-dispatch",
   ],
 
+  images: {
+    remotePatterns: [{ hostname: "lh3.googleusercontent.com" }],
+  },
+
+  experimental: { instrumentationHook: true },
+
   async rewrites() {
     return [
       {
@@ -26,9 +32,6 @@ const config = {
         destination: "http://localhost:4000/webshell/ws",
       },
     ];
-  },
-  experimental: {
-    instrumentationHook: true,
   },
   /** We already do linting and typechecking as separate tasks in CI */
   eslint: { ignoreDuringBuilds: true },

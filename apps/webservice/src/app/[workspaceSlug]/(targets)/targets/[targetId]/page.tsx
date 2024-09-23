@@ -19,9 +19,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@ctrlplane/ui/tooltip";
+import { JobStatus } from "@ctrlplane/validators/jobs";
 
-import { useMatchSorterWithSearch } from "~/app/[workspaceSlug]/_components/useMatchSorter";
 import { api } from "~/trpc/react";
+import { useMatchSorterWithSearch } from "~/utils/useMatchSorter";
 import { ReleaseCell } from "./ReleaseCell";
 
 const DeploymentsTable: React.FC<{ targetId: string }> = ({ targetId }) => {
@@ -31,12 +32,11 @@ const DeploymentsTable: React.FC<{ targetId: string }> = ({ targetId }) => {
     <Table className="w-full min-w-max border-separate border-spacing-0">
       <TableBody>
         {deployments.data?.map((deployment, idx) => {
-          const jobConfig = jobs.data
-            ?.filter((j) => j.execution != null)
-            .filter(
+          const releaseJobTrigger = jobs.data
+            ?.filter(
               (j) =>
-                j.execution?.status === "completed" ||
-                j.execution?.status === "pending",
+                j.job.status === JobStatus.Completed ||
+                j.job.status === JobStatus.Pending,
             )
             .find((j) => j.deployment?.id === deployment.id);
 
@@ -58,13 +58,13 @@ const DeploymentsTable: React.FC<{ targetId: string }> = ({ targetId }) => {
                   idx === deployments.data.length - 1 && "rounded-br-md",
                 )}
               >
-                {jobConfig && (
+                {releaseJobTrigger && (
                   <ReleaseCell
                     deployment={deployment}
-                    jobConfig={{
-                      ...jobConfig,
-                      release: jobConfig.release,
-                      execution: jobConfig.execution!,
+                    releaseJobTrigger={{
+                      ...releaseJobTrigger,
+                      release: releaseJobTrigger.release,
+                      job: releaseJobTrigger.job,
                     }}
                   />
                 )}
@@ -77,13 +77,13 @@ const DeploymentsTable: React.FC<{ targetId: string }> = ({ targetId }) => {
   );
 };
 
-const TargetLabelsInfo: React.FC<{ labels: Record<string, string> }> = (
+const TargetMetadataInfo: React.FC<{ metadata: Record<string, string> }> = (
   props,
 ) => {
-  const labels = Object.entries(props.labels).sort(([keyA], [keyB]) =>
+  const metadata = Object.entries(props.metadata).sort(([keyA], [keyB]) =>
     keyA.localeCompare(keyB),
   );
-  const { search, setSearch, result } = useMatchSorterWithSearch(labels, {
+  const { search, setSearch, result } = useMatchSorterWithSearch(metadata, {
     keys: ["0", "1"],
   });
   return (
@@ -228,28 +228,13 @@ export default function TargetPage({
                     format(target.data.updatedAt, "MM/dd/yyyy mm:hh:ss")}
                 </td>
               </tr>
-              <tr>
-                <td className="p-1 py-1 pr-2 text-muted-foreground">Link</td>
-                {/* <td>
-                {link == null ? (
-                  <span className="text-muted-foreground">Not set</span>
-                ) : (
-                  <a
-                    href={link}
-                    className="inline-block w-full overflow-hidden text-ellipsis text-nowrap hover:text-blue-400"
-                  >
-                    {link}
-                  </a>
-                )}
-              </td> */}
-              </tr>
             </tbody>
           </table>
         </div>
         <div className="border-b" />
         <div className="p-6">
-          <div className="mb-4">Labels</div>
-          <TargetLabelsInfo labels={target.data?.labels ?? {}} />
+          <div className="mb-4">Metadata</div>
+          <TargetMetadataInfo metadata={target.data?.metadata ?? {}} />
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>

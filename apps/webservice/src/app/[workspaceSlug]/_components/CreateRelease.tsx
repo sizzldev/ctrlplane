@@ -23,6 +23,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormRootError,
   useFieldArray,
   useForm,
 } from "@ctrlplane/ui/form";
@@ -41,7 +42,7 @@ import { toast } from "@ctrlplane/ui/toast";
 import { api } from "~/trpc/react";
 
 const releaseDependency = z.object({
-  targetLabelGroupId: z.string().uuid().optional(),
+  targetMetadataGroupId: z.string().uuid().optional(),
   deploymentId: z.string().uuid(),
   rule: z.string().min(1).max(255),
   ruleType: z.enum(["semver", "regex"]),
@@ -86,7 +87,7 @@ export const CreateReleaseDialog: React.FC<{
     workspace.data?.id ?? "",
     { enabled: workspace.data != null && workspace.data.id !== "" },
   );
-  const targetLabelGroups = api.target.labelGroup.groups.useQuery(
+  const targetMetadataGroups = api.target.metadataGroup.groups.useQuery(
     workspace.data?.id ?? "",
     { enabled: workspace.data != null && workspace.data.id !== "" },
   );
@@ -121,11 +122,11 @@ export const CreateReleaseDialog: React.FC<{
     );
     setOpen(false);
 
-    const numOfJobConfigs = release.jobConfigs.length;
+    const numOfReleaseJobTriggers = release.releaseJobTriggers.length;
     toast(
-      numOfJobConfigs === 0
+      numOfReleaseJobTriggers === 0
         ? `No targets to deploy release too.`
-        : `Dispatching ${release.jobConfigs.length} job configuration${release.jobConfigs.length > 1 ? "s" : ""}.`,
+        : `Dispatching ${release.releaseJobTriggers.length} job configuration${release.releaseJobTriggers.length > 1 ? "s" : ""}.`,
       {
         dismissible: true,
         duration: 2_000,
@@ -146,7 +147,7 @@ export const CreateReleaseDialog: React.FC<{
       latestRelease.data.at(0)?.releaseDependencies.forEach((rd) => {
         append({
           ...rd,
-          targetLabelGroupId: rd.targetLabelGroupId ?? undefined,
+          targetMetadataGroupId: rd.targetMetadataGroupId ?? undefined,
         });
       });
   }, [latestRelease.data, append, deploymentId]);
@@ -276,21 +277,21 @@ export const CreateReleaseDialog: React.FC<{
 
                     <FormField
                       control={form.control}
-                      name={`releaseDependencies.${index}.targetLabelGroupId`}
+                      name={`releaseDependencies.${index}.targetMetadataGroupId`}
                       render={({ field: { value, onChange } }) => (
                         <FormItem className="col-span-1">
                           <Select value={value} onValueChange={onChange}>
                             <SelectTrigger className="h-8 text-sm">
-                              <SelectValue placeholder="Label Group" />
+                              <SelectValue placeholder="Metadata Group" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
-                                {targetLabelGroups.data?.map((group) => (
+                                {targetMetadataGroups.data?.map((group) => (
                                   <SelectItem
-                                    key={group.targetLabelGroup.id}
-                                    value={group.targetLabelGroup.id}
+                                    key={group.targetMetadataGroup.id}
+                                    value={group.targetMetadataGroup.id}
                                   >
-                                    {group.targetLabelGroup.name}
+                                    {group.targetMetadataGroup.name}
                                   </SelectItem>
                                 ))}
                               </SelectGroup>
@@ -368,6 +369,7 @@ export const CreateReleaseDialog: React.FC<{
               <Button type="submit">Create</Button>
             </DialogFooter>
           </form>
+          <FormRootError />
         </Form>
       </DialogContent>
     </Dialog>
