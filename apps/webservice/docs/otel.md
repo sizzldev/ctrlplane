@@ -17,14 +17,9 @@ cd ctrlplane
 pnpm otel:up
 ```
 
-3. The services will start in detached mode, including:
+3. The services needed to get signoz and otel collector up and running will start in detached mode.
 
-   - **Jaeger** for distributed tracing at `http://localhost:16686`
-   - **Zipkin** at `http://localhost:9411`
-   - **Prometheus** for metrics scraping at `http://localhost:9090`
-   - **OpenTelemetry Collector** with exposed endpoints for OTLP metrics and traces
-
-4. To view the real-time telemetry data, access Jaeger or Zipkin through their respective URLs. You can also monitor system metrics via Prometheus.
+4. Visit http://localhost:3301 to view the real-time telemetry data.
 
 5. You can now run the application with telemetry enabled and start tracking your service's performance.
 
