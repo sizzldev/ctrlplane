@@ -4,7 +4,6 @@ import type {
 } from "@ctrlplane/validators/targets";
 import { useState } from "react";
 import _ from "lodash";
-import { z } from "zod";
 
 import { Button } from "@ctrlplane/ui/button";
 import {
@@ -14,34 +13,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@ctrlplane/ui/dialog";
+import { useForm } from "@ctrlplane/ui/form";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  useFieldArray,
-  useForm,
-} from "@ctrlplane/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@ctrlplane/ui/select";
-import {
-  metadataCondition,
   TargetFilterType,
   TargetOperator,
 } from "@ctrlplane/validators/targets";
 
+import type { MetadataFilterForm } from "../../_components/filter/TargetMetadataFilterForm";
 import type { TargetFilter } from "./TargetFilter";
-import { MetadataFilterInput } from "../../_components/MetadataFilterInput";
-
-const metadataFilterForm = z.object({
-  operator: z.enum(["and", "or"]),
-  targetFilter: z.array(metadataCondition),
-});
+import {
+  metadataFilterForm,
+  TargetMetadataFilterForm,
+} from "../../_components/filter/TargetMetadataFilterForm";
 
 export const MetadataFilterDialog: React.FC<{
   children: React.ReactNode;
@@ -68,12 +51,7 @@ export const MetadataFilterDialog: React.FC<{
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "targetFilter",
-  });
-
-  const onSubmit = form.handleSubmit((values) => {
+  const onSubmit = (values: MetadataFilterForm) => {
     const cond = {
       type: TargetFilterType.Comparison as const,
       operator: values.operator,
@@ -81,93 +59,30 @@ export const MetadataFilterDialog: React.FC<{
     };
     onChange?.({ key: "metadata", value: cond });
     setOpen(false);
-  });
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <DialogTitle>Filter by metadata</DialogTitle>
-
-            {fields.length > 1 && (
-              <FormField
-                control={form.control}
-                name="operator"
-                render={({ field: { onChange, value } }) => (
-                  <FormItem className="w-24">
-                    <FormControl>
-                      <Select value={value} onValueChange={onChange}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="and">And</SelectItem>
-                          <SelectItem value="or">Or</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {fields.map((field, index) => (
-              <FormField
-                key={field.id}
-                control={form.control}
-                name={`targetFilter.${index}`}
-                render={({ field: { onChange, value } }) => (
-                  <FormItem className={index === 0 ? "mt-0" : "mt-2"}>
-                    <FormControl>
-                      <MetadataFilterInput
-                        selectedKeys={fields
-                          .map(
-                            (field) => field.operator !== "null" && field.value,
-                          )
-                          .filter((f) => f !== false)}
-                        value={value}
-                        workspaceId={workspaceId}
-                        onChange={onChange}
-                        onRemove={() => remove(index)}
-                        numInputs={fields.length}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            ))}
+        <DialogTitle>Filter by metadata</DialogTitle>
+        <TargetMetadataFilterForm
+          form={form}
+          workspaceId={workspaceId}
+          onSubmit={onSubmit}
+        >
+          <DialogFooter>
             <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() =>
-                append({
-                  key: "",
-                  value: "",
-                  operator: "equals",
-                  type: "metadata",
-                })
+              type="submit"
+              disabled={
+                form.formState.isSubmitting ||
+                form.watch().targetFilter.some((f) => f.key === "")
               }
             >
-              Add Metadata Key
+              Filter
             </Button>
-
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={
-                  form.formState.isSubmitting ||
-                  form.watch().targetFilter.some((f) => f.key === "")
-                }
-              >
-                Filter
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          </DialogFooter>
+        </TargetMetadataFilterForm>
       </DialogContent>
     </Dialog>
   );

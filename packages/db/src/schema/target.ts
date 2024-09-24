@@ -161,6 +161,8 @@ const buildCondition = (tx: Tx, cond: TargetCondition): SQL => {
 
   if (cond.type === "name") return buildNameCondition(tx, cond);
 
+  if (cond.type === "id") return eq(target.id, cond.value);
+
   const subCon = cond.conditions.map((c) => buildCondition(tx, c));
   return cond.operator === "and" ? and(...subCon)! : or(...subCon)!;
 };

@@ -1,8 +1,5 @@
-import type {
-  DeploymentVariableValue,
-  DeploymentVariableValueTargetFilter,
-  Target,
-} from "@ctrlplane/db/schema";
+import type { DeploymentVariableValue, Target } from "@ctrlplane/db/schema";
+import type { ComparisonCondition } from "@ctrlplane/validators/targets";
 import _ from "lodash";
 import { isPresent } from "ts-is-present";
 import { z } from "zod";
@@ -280,102 +277,92 @@ export const deploymentVariableRouter = createTRPCRouter({
     })
     .input(z.string().uuid())
     .query(async ({ ctx, input }) => {
-      const deploymentVariableValueSubquery = ctx.db
-        .select({
-          id: deploymentVariableValue.id,
-          value: deploymentVariableValue.value,
-          variableId: deploymentVariableValue.variableId,
-          deploymentVariableValueTargetFilters: sql<
-            DeploymentVariableValueTargetFilter[]
-          >`
-            COALESCE(
-              NULLIF(
-                array_agg(
-                  CASE 
-                    WHEN ${deploymentVariableValueTargetFilter.id} IS NOT NULL 
-                    THEN json_build_object(
-                      'id', ${deploymentVariableValueTargetFilter.id},
-                      'variableValueId', ${deploymentVariableValueTargetFilter.variableValueId},
-                      'targetFilter', ${deploymentVariableValueTargetFilter.targetFilter}
-                    )
-                    ELSE NULL
-                  END
-                ) FILTER (WHERE ${deploymentVariableValueTargetFilter.id} IS NOT NULL),
-                '{}'
-              ),
-              '{}'
-            )
-          `.as("deployment_variable_value_target_filters"),
-        })
-        .from(deploymentVariableValue)
-        .leftJoin(
-          deploymentVariableValueTargetFilter,
-          eq(
-            deploymentVariableValueTargetFilter.variableValueId,
+      try {
+        const deploymentVariableValueSubquery = ctx.db
+          .select({
+            id: deploymentVariableValue.id,
+            value: deploymentVariableValue.value,
+            variableId: deploymentVariableValue.variableId,
+            targetFilter: deploymentVariableValueTargetFilter.targetFilter,
+          })
+          .from(deploymentVariableValue)
+          .leftJoin(
+            deploymentVariableValueTargetFilter,
+            eq(
+              deploymentVariableValueTargetFilter.variableValueId,
+              deploymentVariableValue.id,
+            ),
+          )
+          .groupBy(
             deploymentVariableValue.id,
-          ),
-        )
-        .groupBy(deploymentVariableValue.id)
-        .as("deployment_variable_value_subquery");
+            deploymentVariableValueTargetFilter.id,
+          )
+          .as("deployment_variable_value_subquery");
 
-      const deploymentVariables = await ctx.db
-        .select({
-          deploymentVariable: deploymentVariable,
-          values: sql<
-            (DeploymentVariableValue & {
-              deploymentVariableValueTargets: {
-                variableValueId: string;
-                target: {
-                  id: string;
-                  name: string;
-                  identifier: string;
-                };
-              }[];
-              deploymentVariableValueTargetFilters: DeploymentVariableValueTargetFilter[];
-            })[]
-          >`
+        const deploymentVariables = await ctx.db
+          .select({
+            deploymentVariable: deploymentVariable,
+            values: sql<
+              (DeploymentVariableValue & {
+                targetFilter: ComparisonCondition | null;
+                targets: Target[];
+              })[]
+            >`
             array_agg(
                 json_build_object(
                 'id', ${deploymentVariableValueSubquery.id},
                 'value', ${deploymentVariableValueSubquery.value},
                 'variableId', ${deploymentVariableValueSubquery.variableId},
-                'deploymentVariableValueTargetFilters', ${deploymentVariableValueSubquery.deploymentVariableValueTargetFilters}
+                'targetFilter', ${deploymentVariableValueSubquery.targetFilter}
               )
             )
           `.as("values"),
-        })
-        .from(deploymentVariable)
-        .leftJoin(
-          deploymentVariableValueSubquery,
-          eq(deploymentVariable.id, deploymentVariableValueSubquery.variableId),
-        )
-        .groupBy(deploymentVariable.id)
-        .orderBy(asc(deploymentVariable.key))
-        .where(eq(deploymentVariable.deploymentId, input));
+          })
+          .from(deploymentVariable)
+          .leftJoin(
+            deploymentVariableValueSubquery,
+            eq(
+              deploymentVariable.id,
+              deploymentVariableValueSubquery.variableId,
+            ),
+          )
+          .groupBy(deploymentVariable.id)
+          .orderBy(asc(deploymentVariable.key))
+          .where(eq(deploymentVariable.deploymentId, input));
 
-      return Promise.all(
-        deploymentVariables.map(async (deploymentVariable) => ({
-          ...deploymentVariable.deploymentVariable,
-          values: await Promise.all(
-            deploymentVariable.values.map(async (value) => ({
-              ...value,
-              deploymentVariableValueTargetFilters: await Promise.all(
-                value.deploymentVariableValueTargetFilters.map(
-                  async (filter) => ({
-                    ...filter,
-                    targets: await ctx.db
-                      .select()
-                      .from(target)
-                      .where(
-                        targetMatchesMetadata(ctx.db, filter.targetFilter),
-                      ),
-                  }),
-                ),
-              ),
-            })),
-          ),
-        })),
-      );
+        deploymentVariables.forEach((deploymentVariable) => {
+          console.log(
+            ">>> deploymentVariable",
+            deploymentVariable.deploymentVariable.key,
+          );
+          deploymentVariable.values.forEach((value) => {
+            console.log(">>> value", { value });
+          });
+        });
+
+        return Promise.all(
+          deploymentVariables.map(async (deploymentVariable) => ({
+            ...deploymentVariable.deploymentVariable,
+            values: await Promise.all(
+              deploymentVariable.values.map(async (value) => ({
+                ...value,
+                targets:
+                  value.targetFilter != null
+                    ? await ctx.db
+                        .select()
+                        .from(target)
+                        .where(
+                          targetMatchesMetadata(ctx.db, value.targetFilter),
+                        )
+                    : [],
+              })),
+            ),
+          })),
+        );
+      } catch (e) {
+        console.error(e);
+        throw e;
+      }
     }),
 
   create: protectedProcedure

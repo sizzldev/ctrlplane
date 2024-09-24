@@ -56,8 +56,6 @@ export const VariableTable: React.FC<{
     ],
   });
 
-  console.log({ result });
-
   return (
     <>
       <div className="sticky left-0 right-0 top-0 z-20 border-b bg-neutral-950">
@@ -81,13 +79,8 @@ export const VariableTable: React.FC<{
         <TableBody>
           {result.map((variable, idx) => {
             const numUniqueTargets = _.chain(variable.values)
-              .flatMap((v) =>
-                v.deploymentVariableValueTargetFilters.map((f) =>
-                  f.targets.map((t) => t.id),
-                ),
-              )
-              .compact()
-              .uniq()
+              .flatMap((v) => v.targets)
+              .uniqBy((t) => t.id)
               .value().length;
             return (
               <Collapsible key={variable.id} asChild>
@@ -121,39 +114,32 @@ export const VariableTable: React.FC<{
                   </TableRow>
                   <CollapsibleContent asChild>
                     <>
-                      {variable.values.map((v) => {
-                        const numTargets =
-                          v.deploymentVariableValueTargetFilters.map((f) =>
-                            f.targets.map((t) => t.id),
-                          );
-
-                        return (
-                          <TableRow
-                            key={v.id}
-                            className="border-none" /* className="border-none py-0" */
-                          >
-                            <TableCell className="pl-12">{v.value}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">
-                                {numTargets.length} target
-                                {numTargets.length === 1 ? "" : "s"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="flex justify-end">
-                              <VariableValueDropdown variable={variable}>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={(e) => e.preventDefault()}
-                                >
-                                  <TbDotsVertical />
-                                </Button>
-                              </VariableValueDropdown>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {variable.values.map((v) => (
+                        <TableRow
+                          key={v.id}
+                          className="border-none" /* className="border-none py-0" */
+                        >
+                          <TableCell className="pl-12">{v.value}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {v.targets.length} target
+                              {v.targets.length === 1 ? "" : "s"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="flex justify-end">
+                            <VariableValueDropdown value={v}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => e.preventDefault()}
+                              >
+                                <TbDotsVertical />
+                              </Button>
+                            </VariableValueDropdown>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </>
                   </CollapsibleContent>
                 </>

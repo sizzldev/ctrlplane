@@ -1,17 +1,8 @@
-import { useState } from "react";
+import type { TargetCondition } from "@ctrlplane/validators/targets";
 import { useParams } from "next/navigation";
-import { TbX } from "react-icons/tb";
-import { z } from "zod";
 
 import { Badge } from "@ctrlplane/ui/badge";
 import { Button } from "@ctrlplane/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@ctrlplane/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -28,68 +19,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@ctrlplane/ui/dropdown-menu";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  useFieldArray,
-  useForm,
-} from "@ctrlplane/ui/form";
-import { Label } from "@ctrlplane/ui/label";
-import { RadioGroup, RadioGroupItem } from "@ctrlplane/ui/radio-group";
-import { targetCondition } from "@ctrlplane/validators/targets";
+import { useForm } from "@ctrlplane/ui/form";
 
-import type { VariableData } from "./variable-data";
+import type { TargetFilterFormValues } from "../../../../../_components/filter/TargetConditionForm";
+import type { VariableValue } from "./variable-data";
 import { api } from "~/trpc/react";
+import {
+  TargetFilterForm,
+  targetFilterForm,
+} from "../../../../../_components/filter/TargetConditionForm";
 
-const variableScopeTargetFiltersFormSchema = z.object({
-  targetFilters: z.array(targetCondition),
-});
+
 
 const ConfigureVariableScopeDialog: React.FC<{
-  variable: VariableData;
+  value: VariableValue;
   children: React.ReactNode;
-}> = ({ variable, children }) => {
-  const [search, setSearch] = useState("");
+}> = ({ value, children }) => {
+  const form = useForm({
+    schema: targetFilterForm,
+    defaultValues: {
+      operator: value.targetFilter?.operator ?? "and",
+      targetFilter: (value.targetFilter?.conditions ?? []) as TargetCondition[],
+    },
+  });
+
+  const onSubmit = (values: TargetFilterFormValues) => {
+    console.log(values);
+  };
 
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
   const workspace = api.workspace.bySlug.useQuery(workspaceSlug);
-
-  const targets = api.target.byWorkspaceId.list.useQuery(
-    {
-      workspaceId: workspace.data?.id ?? "",
-      filters:
-        search != ""
-          ? [
-              {
-                type: "comparison",
-                operator: "or",
-                conditions: [
-                  {
-                    type: "name",
-                    operator: "like",
-                    value: `%${search}%`,
-                  },
-                ],
-              },
-            ]
-          : [],
-    },
-    { enabled: workspace.isSuccess && workspace.data?.id !== "" },
-  );
-
-  const targetFilterForm = useForm({
-    schema: variableScopeTargetFiltersFormSchema,
-    defaultValues: {
-      targetFilters: [],
-    },
-  });
-
-  const targetFilterFormFields = useFieldArray({
-    control: targetFilterForm.control,
-    name: "targetFilters",
-  });
 
   return (
     <Dialog>
@@ -99,7 +58,7 @@ const ConfigureVariableScopeDialog: React.FC<{
           <DialogTitle>
             Assign targets to{" "}
             <Badge variant="secondary" className="text-base">
-              {variable.key}
+              {value.value}
             </Badge>
           </DialogTitle>
 
@@ -109,22 +68,32 @@ const ConfigureVariableScopeDialog: React.FC<{
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-8"></div>
+        <div className="space-y-4">
+          <TargetFilterForm
+            form={form}
+            workspaceId={workspace.data?.id ?? ""}
+            onSubmit={onSubmit}
+          >
+            <DialogFooter>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
+          </TargetFilterForm>
+        </div>
       </DialogContent>
     </Dialog>
   );
 };
 
 export const VariableValueDropdown: React.FC<{
-  variable: VariableData;
+  value: VariableValue;
   children: React.ReactNode;
-}> = ({ variable, children }) => {
+}> = ({ value, children }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuGroup>
-          <ConfigureVariableScopeDialog variable={variable}>
+          <ConfigureVariableScopeDialog value={value}>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
               Assign targets
             </DropdownMenuItem>

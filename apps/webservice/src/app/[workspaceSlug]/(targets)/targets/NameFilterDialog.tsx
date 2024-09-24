@@ -3,9 +3,6 @@ import type {
   NameCondition,
 } from "@ctrlplane/validators/targets";
 import { useState } from "react";
-import _ from "lodash";
-import { TbX } from "react-icons/tb";
-import { z } from "zod";
 
 import { Button } from "@ctrlplane/ui/button";
 import {
@@ -15,34 +12,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@ctrlplane/ui/dialog";
+import { useForm } from "@ctrlplane/ui/form";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  useFieldArray,
-  useForm,
-} from "@ctrlplane/ui/form";
-import { Input } from "@ctrlplane/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@ctrlplane/ui/select";
-import {
-  nameCondition,
   TargetFilterType,
   TargetOperator,
 } from "@ctrlplane/validators/targets";
 
+import type { TargetNameFilterFormValues } from "../../_components/filter/TargetNameFilterForm";
 import type { TargetFilter } from "./TargetFilter";
-
-const nameFilterForm = z.object({
-  operator: z.enum(["and", "or"]),
-  targetFilter: z.array(nameCondition),
-});
+import {
+  targetNameFilterForm,
+  TargetNameFilterForm,
+} from "../../_components/filter/TargetNameFilterForm";
 
 export const NameFilterDialog: React.FC<{
   children: React.ReactNode;
@@ -51,7 +32,7 @@ export const NameFilterDialog: React.FC<{
 }> = ({ children, onChange, filter }) => {
   const [open, setOpen] = useState(false);
   const form = useForm({
-    schema: nameFilterForm,
+    schema: targetNameFilterForm,
     defaultValues: {
       operator:
         filter?.operator === TargetOperator.Or
@@ -67,13 +48,7 @@ export const NameFilterDialog: React.FC<{
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "targetFilter",
-  });
-
-  const onSubmit = form.handleSubmit((values) => {
-    console.log(values);
+  const onSubmit = (values: TargetNameFilterFormValues) => {
     const cond = {
       type: TargetFilterType.Comparison as const,
       operator: values.operator,
@@ -81,104 +56,26 @@ export const NameFilterDialog: React.FC<{
     };
     onChange?.({ key: TargetFilterType.Name, value: cond });
     setOpen(false);
-  });
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <DialogTitle>Filter by name</DialogTitle>
-
-            {fields.length > 1 && (
-              <FormField
-                control={form.control}
-                name="operator"
-                render={({ field: { onChange, value } }) => (
-                  <FormItem className="w-24">
-                    <FormControl>
-                      <Select value={value} onValueChange={onChange}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="and">And</SelectItem>
-                          <SelectItem value="or">Or</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {fields.map((field, index) => (
-              <FormField
-                key={field.id}
-                control={form.control}
-                name={`targetFilter.${index}`}
-                render={({ field: { onChange, value } }) => (
-                  <FormItem className={index === 0 ? "mt-0" : "mt-2"}>
-                    <FormControl>
-                      <div className="flex w-full items-center gap-2">
-                        <div className="flex w-full items-center">
-                          <Input
-                            value={value.value.replace(/^%|%$/g, "")}
-                            onChange={(e) =>
-                              onChange({
-                                ...value,
-                                value: `%${e.target.value}%`,
-                              })
-                            }
-                          />
-                        </div>
-
-                        {fields.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => remove(index)}
-                          >
-                            <TbX />
-                          </Button>
-                        )}
-                      </div>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            ))}
+        <DialogTitle>Filter by name</DialogTitle>
+        <TargetNameFilterForm form={form} onSubmit={onSubmit}>
+          <DialogFooter>
             <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() =>
-                append({
-                  value: "",
-                  operator: TargetOperator.Like,
-                  type: TargetFilterType.Name,
-                })
+              type="submit"
+              disabled={
+                form.formState.isSubmitting ||
+                form.watch().targetFilter.some((f) => f.value === "")
               }
             >
-              Add Name Filter
+              Filter
             </Button>
-
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={
-                  form.formState.isSubmitting ||
-                  form.watch().targetFilter.some((f) => f.value === "")
-                }
-              >
-                Filter
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          </DialogFooter>
+        </TargetNameFilterForm>
       </DialogContent>
     </Dialog>
   );

@@ -50,6 +50,7 @@ export const comparisonCondition: z.ZodType<ComparisonCondition> = z.lazy(() =>
         nullCondition,
         kindEqualsCondition,
         nameCondition,
+        idCondition,
       ]),
     ),
   }),
@@ -66,6 +67,7 @@ export type ComparisonCondition = {
     | NullCondition
     | KindEqualsCondition
     | NameCondition
+    | IdCondition
   >;
 };
 
@@ -109,6 +111,14 @@ export const nameCondition = z.union([
 
 export type NameCondition = z.infer<typeof nameCondition>;
 
+export const idCondition = z.object({
+  type: z.literal("id"),
+  operator: z.literal("equals"),
+  value: z.string().uuid(),
+});
+
+export type IdCondition = z.infer<typeof idCondition>;
+
 export type TargetCondition =
   | ComparisonCondition
   | LikeCondition
@@ -116,8 +126,8 @@ export type TargetCondition =
   | EqualCondition
   | NullCondition
   | KindEqualsCondition
-  | NameCondition;
-
+  | NameCondition
+  | IdCondition;
 export const targetCondition = z.union([
   comparisonCondition,
   equalsCondition,
@@ -126,6 +136,7 @@ export const targetCondition = z.union([
   nullCondition,
   kindEqualsCondition,
   nameCondition,
+  idCondition,
 ]);
 
 export const metadataCondition = z.union([
