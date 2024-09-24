@@ -1,5 +1,5 @@
 import type { MetadataCondition } from "@ctrlplane/validators/targets";
-import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import type { InferSelectModel } from "drizzle-orm";
 import { jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -39,7 +39,7 @@ export const deploymentVariableValue = pgTable(
   },
   (t) => ({ uniq: uniqueIndex().on(t.variableId, t.value) }),
 );
-export type DeploymentVariableValue = InferInsertModel<
+export type DeploymentVariableValue = InferSelectModel<
   typeof deploymentVariableValue
 >;
 export const createDeploymentVariableValue = createInsertSchema(
@@ -60,7 +60,7 @@ export const deploymentVariableValueTargetFilter = pgTable(
     targetFilter: jsonb("target_filter").$type<MetadataCondition>().notNull(),
   },
 );
-export type DeploymentVariableValueTargetFilter = InferInsertModel<
+export type DeploymentVariableValueTargetFilter = InferSelectModel<
   typeof deploymentVariableValueTargetFilter
 >;
 export const createDeploymentVariableValueTargetFilter = createInsertSchema(
@@ -82,7 +82,7 @@ export const deploymentVariableValueTarget = pgTable(
   },
   (t) => ({ uniq: uniqueIndex().on(t.variableValueId, t.targetId) }),
 );
-export type DeploymentVariableValueTarget = InferInsertModel<
+export type DeploymentVariableValueTarget = InferSelectModel<
   typeof deploymentVariableValueTarget
 >;
 export const createDeploymentVariableValueTarget = createInsertSchema(

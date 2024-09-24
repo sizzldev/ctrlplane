@@ -15,7 +15,10 @@ export default async function VariablesPage({
     <>
       <div className="h-full overflow-y-auto pb-[100px]">
         <div className="min-h-full">
-          <VariableTable variables={variables} />
+          <VariableTable
+            variables={variables}
+            deploymentName={deployment.name}
+          />
         </div>
       </div>
     </>
