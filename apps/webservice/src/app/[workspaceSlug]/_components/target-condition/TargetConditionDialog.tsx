@@ -1,5 +1,5 @@
 import type { TargetCondition } from "@ctrlplane/validators/targets";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { Button } from "@ctrlplane/ui/button";
 import {
@@ -36,6 +36,9 @@ export const TargetConditionDialog: React.FC<TargetConditionDialogProps> = ({
   const [localCondition, setLocalCondition] = useState(
     condition ?? defaultCondition,
   );
+  useEffect(() => {
+    setLocalCondition(condition ?? defaultCondition);
+  }, [condition]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
