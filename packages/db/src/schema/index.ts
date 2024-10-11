@@ -11,6 +11,7 @@ export * from "./job.js";
 export * from "./workspace.js";
 export * from "./github.js";
 export * from "./deployment-variables.js";
+export * from "./system-variables.js";
 export * from "./dashboard.js";
 export * from "./variable-sets.js";
 export * from "./invite.js";

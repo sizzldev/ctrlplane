@@ -30,11 +30,17 @@ export const createReleaseVariables = async (
     await tx.insert(schema.jobVariable).values(jobVariables);
 };
 
+type ZippedVariable = {
+  key: string;
+  deploymentVariable?: schema.DeploymentVariable;
+  systemVariable?: schema.SystemVariable;
+};
+
 const determineVariablesForReleaseJob = async (
   tx: Tx,
   job: schema.Job & { releaseJobTrigger: schema.ReleaseJobTrigger },
 ): Promise<schema.JobVariable[]> => {
-  const variables = await tx
+  const deploymentVariables = await tx
     .select()
     .from(schema.deploymentVariable)
     .innerJoin(
@@ -43,7 +49,16 @@ const determineVariablesForReleaseJob = async (
     )
     .where(eq(schema.release.id, job.releaseJobTrigger.releaseId));
 
-  if (variables.length === 0) return [];
+  const systemVariables = await tx
+    .select()
+    .from(schema.systemVariable)
+    .innerJoin(
+      schema.system,
+      eq(schema.systemVariable.systemId, schema.system.id),
+    );
+
+  if (deploymentVariables.length === 0 && systemVariables.length === 0)
+    return [];
 
   const jobTarget = await tx
     .select()
@@ -77,6 +92,17 @@ const determineVariablesForReleaseJob = async (
   return jobVariables;
 };
 
+/**
+ * Scope hierarchy:
+ * 1. Deployment variable value matches target filter
+ *    - If multiple, take the first (returned in alphabetical order)
+ * 2. System variable value matches target filter
+ *    - If multiple, take the first (returned in alphabetical order)
+ * 3. Deployment variable default value (if any)
+ * 4. System variable default value (if any)
+ * 5. First deployment variable value (returned in alphabetical order)
+ * 6. First system variable value (returned in alphabetical order)
+ */
 const determineReleaseVariableValue = async (
   tx: Tx,
   variableId: string,
