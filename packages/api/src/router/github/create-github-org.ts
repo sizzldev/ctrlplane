@@ -208,23 +208,16 @@ export const createNewGithubOrganization = async (
       ...ymlFiles.data.items,
     ]);
 
+    console.log(configFiles);
+
     if (configFiles.length === 0) return;
 
-    const parsedConfigFiles = await Promise.allSettled(
-      configFiles.map((cf) =>
-        parseConfigFile(
-          cf,
-          org.organizationName,
-          org.branch,
-          installationOctokit,
-        ),
-      ),
-    ).then((results) =>
-      results
-        .map((r) => (r.status === "fulfilled" ? r.value : null))
-        .filter(isPresent),
-    );
+    const configFileInserts = configFiles.map((cf) => ({
+      organizationId: org.id,
+      workspaceId: org.workspaceId,
+      repositoryName: cf.repository.name,
+      path: cf.path,
+    }));
 
-    if (parsedConfigFiles.length === 0) return;
-    await processParsedConfigFiles(db, parsedConfigFiles, org);
+    await db.insert(githubConfigFile).values(configFileInserts);
   });

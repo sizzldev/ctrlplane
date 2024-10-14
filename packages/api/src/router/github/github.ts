@@ -6,7 +6,15 @@ import _ from "lodash";
 import { isPresent } from "ts-is-present";
 import { z } from "zod";
 
-import { and, eq, inArray, takeFirst, takeFirstOrNull } from "@ctrlplane/db";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  takeFirst,
+  takeFirstOrNull,
+} from "@ctrlplane/db";
 import {
   deployment,
   githubConfigFile,
@@ -291,43 +299,25 @@ export const githubRouter = createTRPCRouter({
           }),
       })
       .input(z.string().uuid())
-      .query(({ ctx, input }) =>
-        ctx.db
-          .select()
-          .from(githubOrganization)
-          .leftJoin(
-            githubUser,
-            eq(githubOrganization.addedByUserId, githubUser.userId),
-          )
-          .leftJoin(
-            githubConfigFile,
-            eq(githubConfigFile.organizationId, githubOrganization.id),
-          )
-          .leftJoin(
-            deployment,
-            eq(deployment.githubConfigFileId, githubConfigFile.id),
-          )
-          .where(eq(githubOrganization.workspaceId, input))
-          .then((rows) =>
-            _.chain(rows)
-              .groupBy("github_organization.id")
-              .map((v) => ({
-                ...v[0]!.github_organization,
-                addedByUser: v[0]!.github_user,
-                configFiles: v
-                  .map((v) => v.github_config_file)
-                  .filter(isPresent)
-                  .map((cf) => ({
-                    ...cf,
-                    deployments: v
-                      .map((v) => v.deployment)
-                      .filter(isPresent)
-                      .filter((d) => d.githubConfigFileId === cf.id),
-                  })),
-              }))
-              .value(),
-          ),
-      ),
+      .query(({ ctx, input }) => {
+        return ctx.db.query.githubOrganization.findMany({
+          where: eq(githubOrganization.workspaceId, input),
+          with: {
+            addedByUser: true,
+            configFiles: {
+              orderBy: [
+                desc(githubConfigFile.connected),
+                asc(githubConfigFile.path),
+              ],
+              with: {
+                deployments: {
+                  orderBy: desc(deployment.name),
+                },
+              },
+            },
+          },
+        });
+      }),
 
     create: protectedProcedure
       .meta({

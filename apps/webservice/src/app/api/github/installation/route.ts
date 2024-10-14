@@ -10,7 +10,7 @@ import {
 import { auth } from "@ctrlplane/auth";
 import { eq, takeFirstOrNull } from "@ctrlplane/db";
 import { db } from "@ctrlplane/db/client";
-import { user, workspace } from "@ctrlplane/db/schema";
+import { githubUser, user, workspace } from "@ctrlplane/db/schema";
 
 import { env } from "~/env";
 import { api } from "~/trpc/server";
@@ -49,6 +49,7 @@ export const GET = async (req: NextRequest) => {
   const u = await db
     .select()
     .from(user)
+    .innerJoin(githubUser, eq(githubUser.userId, user.id))
     .where(eq(user.id, session.user.id))
     .then(takeFirstOrNull);
   if (u == null)
@@ -57,7 +58,7 @@ export const GET = async (req: NextRequest) => {
       { status: UNAUTHORIZED },
     );
 
-  if (u.activeWorkspaceId == null)
+  if (u.user.activeWorkspaceId == null)
     return NextResponse.json(
       { error: "Workspace not found" },
       { status: NOT_FOUND },
@@ -66,7 +67,7 @@ export const GET = async (req: NextRequest) => {
   const activeWorkspace = await db
     .select()
     .from(workspace)
-    .where(eq(workspace.id, u.activeWorkspaceId))
+    .where(eq(workspace.id, u.user.activeWorkspaceId))
     .then(takeFirstOrNull);
 
   if (activeWorkspace == null)
@@ -112,7 +113,7 @@ export const GET = async (req: NextRequest) => {
     installationId: installation.data.id,
     organizationName: orgData.data.login,
     avatarUrl: orgData.data.avatar_url,
-    addedByUserId: u.id,
+    addedByUserId: u.github_user.id,
   });
 
   await api.job.agent.create({

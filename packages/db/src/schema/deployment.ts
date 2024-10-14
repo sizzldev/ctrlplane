@@ -1,4 +1,5 @@
 import type { InferSelectModel } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import { jsonb, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -52,6 +53,13 @@ export const deployment = pgTable(
   },
   (t) => ({ uniq: uniqueIndex().on(t.systemId, t.slug) }),
 );
+
+export const deploymentRelations = relations(deployment, ({ one }) => ({
+  githubConfigFile: one(githubConfigFile, {
+    fields: [deployment.githubConfigFileId],
+    references: [githubConfigFile.id],
+  }),
+}));
 
 const deploymentInsert = createInsertSchema(deployment, {
   ...deploymentSchema.shape,

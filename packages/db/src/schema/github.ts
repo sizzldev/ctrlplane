@@ -1,5 +1,7 @@
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
+  boolean,
   integer,
   pgTable,
   text,
@@ -10,6 +12,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 
 import { user } from "./auth.js";
+import { deployment } from "./deployment.js";
 import { workspace } from "./workspace.js";
 
 export const githubUser = pgTable("github_user", {
@@ -29,9 +32,9 @@ export const githubOrganization = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     installationId: integer("installation_id").notNull(),
     organizationName: text("organization_name").notNull(),
-    addedByUserId: uuid("added_by_user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    addedByUserId: uuid("added_by_user_id").references(() => githubUser.id, {
+      onDelete: "set null",
+    }),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspace.id, { onDelete: "cascade" }),
@@ -39,13 +42,23 @@ export const githubOrganization = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    branch: text("branch").notNull().default("main"),
   },
   (t) => ({
     unique: uniqueIndex("unique_installation_workspace").on(
       t.installationId,
       t.workspaceId,
     ),
+  }),
+);
+
+export const githubOrganizationRelations = relations(
+  githubOrganization,
+  ({ one, many }) => ({
+    configFiles: many(githubConfigFile),
+    addedByUser: one(githubUser, {
+      fields: [githubOrganization.addedByUserId],
+      references: [githubUser.id],
+    }),
   }),
 );
 
@@ -71,6 +84,8 @@ export const githubConfigFile = pgTable(
     lastSyncedAt: timestamp("last_synced_at", {
       withTimezone: true,
     }).defaultNow(),
+    connected: boolean("connected").notNull().default(false),
+    branch: text("branch").notNull().default("main"),
   },
   (t) => ({
     unique: uniqueIndex("unique_organization_repository_path").on(
@@ -78,6 +93,17 @@ export const githubConfigFile = pgTable(
       t.repositoryName,
       t.path,
     ),
+  }),
+);
+
+export const githubConfigFileRelations = relations(
+  githubConfigFile,
+  ({ one, many }) => ({
+    organization: one(githubOrganization, {
+      fields: [githubConfigFile.organizationId],
+      references: [githubOrganization.id],
+    }),
+    deployments: many(deployment),
   }),
 );
 

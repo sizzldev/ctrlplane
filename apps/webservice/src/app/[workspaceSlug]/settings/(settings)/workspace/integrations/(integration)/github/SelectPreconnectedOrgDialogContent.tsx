@@ -50,7 +50,7 @@ export const SelectPreconnectedOrgDialogContent: React.FC<
       installationId: org.installationId,
       workspaceId,
       organizationName: org.login,
-      addedByUserId: githubUser.userId,
+      addedByUserId: githubUser.id,
       avatarUrl: org.avatar_url,
     });
 
